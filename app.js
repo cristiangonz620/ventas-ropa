@@ -83,6 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
         historyProductTitle: document.getElementById('history-product-title'),
         historyTableBody: document.getElementById('history-table-body'),
         historyTotalUsd: document.getElementById('history-total-usd'),
+
+        // Detalle de Pedido Modal
+        orderDetailsModal: document.getElementById('order-details-modal'),
+        btnCloseOrderDetails: document.getElementById('btn-close-order-details'),
+        btnCloseOrderDetailsFooter: document.getElementById('btn-close-order-details-footer'),
+        detailsClientTitle: document.getElementById('details-client-title'),
+        detailsClientPhone: document.getElementById('details-client-phone'),
+        detailsItemsContainer: document.getElementById('details-items-container'),
+        detailsTotalUsd: document.getElementById('details-total-usd'),
+        detailsPendingUsd: document.getElementById('details-pending-usd'),
         
         // Métricas
         metricTotalSales: document.getElementById('metric-total-sales'),
@@ -612,6 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
         el.btnCloseHistory.addEventListener('click', () => el.historyModal.classList.add('hidden'));
         el.btnCloseHistoryFooter.addEventListener('click', () => el.historyModal.classList.add('hidden'));
 
+        // Detalle de Pedido Modal Close
+        el.btnCloseOrderDetails.addEventListener('click', () => el.orderDetailsModal.classList.add('hidden'));
+        el.btnCloseOrderDetailsFooter.addEventListener('click', () => el.orderDetailsModal.classList.add('hidden'));
+
         // Filtros de fecha en Reportes
         el.reportesFechaInicio.addEventListener('change', renderCharts);
         el.reportesFechaFin.addEventListener('change', renderCharts);
@@ -885,6 +899,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td class="py-4 px-6 text-center">
                     <div class="flex items-center justify-center gap-2">
+                        <!-- Botón Ver Detalles del Pedido -->
+                        <button class="btn-view-details p-1.5 bg-slate-900 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/80 rounded-lg text-slate-400 hover:text-violet-400 transition-all" 
+                            data-sale-id="${sale.id}" 
+                            data-client-name="${client.nombre}" 
+                            data-client-phone="${client.telefono || 'Sin teléfono'}"
+                            data-total-usd="${fmt.usd(ventaTotal)}"
+                            data-pending-usd="${fmt.usd(saldoPendiente)}"
+                            title="Ver detalle del pedido / prendas">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+
                         <button class="btn-view-history p-1.5 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-lg text-slate-400 hover:text-brand-400 transition-all" 
                             data-sale-id="${sale.id}" 
                             data-client-name="${client.nombre}" 
@@ -921,6 +946,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
             `;
+
+            // Event handler para ver detalles
+            const btnDetails = tr.querySelector('.btn-view-details');
+            if (btnDetails) {
+                btnDetails.addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    openOrderDetails(btn.dataset.saleId, btn.dataset.clientName, btn.dataset.clientPhone, btn.dataset.totalUsd, btn.dataset.pendingUsd);
+                });
+            }
 
             // Event handler para ver historial
             tr.querySelector('.btn-view-history').addEventListener('click', (e) => {
@@ -1437,6 +1471,117 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Error al registrar abono:", err);
             showToast("Error de Operación", "No se pudo registrar el abono: " + err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    // --- ABRIR DETALLE DE PRENDAS DEL PEDIDO ---
+    function openOrderDetails(ventaId, clientName, clientPhone, totalUsd, pendingUsd) {
+        el.detailsClientTitle.textContent = `Pedido de ${clientName}`;
+        el.detailsClientPhone.textContent = `Teléfono: ${clientPhone}`;
+        el.detailsTotalUsd.textContent = totalUsd;
+        el.detailsPendingUsd.textContent = pendingUsd;
+
+        const container = el.detailsItemsContainer;
+        container.innerHTML = `
+            <div class="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <div class="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Cargando prendas...</span>
+            </div>
+        `;
+        el.orderDetailsModal.classList.remove('hidden');
+
+        // Buscar la venta en el estado local para obtener las prendas asociadas
+        const sale = state.sales.find(s => s.id === ventaId);
+        if (!sale) {
+            container.innerHTML = `<div class="py-8 text-center text-rose-400">No se encontró la información del pedido.</div>`;
+            return;
+        }
+
+        const items = sale.productos || [];
+        if (items.length === 0) {
+            container.innerHTML = `<div class="py-8 text-center text-slate-500">Este pedido no tiene prendas registradas.</div>`;
+            return;
+        }
+
+        container.innerHTML = "";
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 gap-4 transition-all hover:bg-slate-900/60";
+            
+            const itemImg = item.imagen_url || DEFAULT_CLOTHING_IMAGE;
+            
+            card.innerHTML = `
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <img class="w-12 h-12 rounded-xl object-cover bg-slate-950 border border-slate-800 shrink-0" 
+                        src="${itemImg}" 
+                        onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
+                        alt="${item.descripcion}">
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-semibold text-slate-200 truncate pr-2" title="${item.descripcion}">${item.descripcion}</h4>
+                        <p class="text-[11px] text-slate-500 mt-1">
+                            Costo: <span class="font-medium text-slate-400">${fmt.usd(item.precio_costo_usd)}</span> | 
+                            Venta: <span class="font-medium text-brand-400">${fmt.usd(item.precio_venta_usd)}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5 shrink-0">
+                    ${item.estado === 'entregado' ? `
+                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-950 text-slate-500 border border-slate-800/80">
+                            Entregado
+                        </span>
+                    ` : `
+                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-brand-950/60 text-brand-400 border border-brand-800/30">
+                            Pendiente
+                        </span>
+                        <button class="btn-deliver-single px-3 py-1.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-bold rounded-lg text-[10px] transition-all flex items-center gap-1 shadow-sm"
+                            data-product-id="${item.id}" data-prenda-desc="${item.descripcion}">
+                            <i data-lucide="package-check" class="w-3.5 h-3.5"></i> Entregar
+                        </button>
+                    `}
+                </div>
+            `;
+
+            const btnDeliver = card.querySelector('.btn-deliver-single');
+            if (btnDeliver) {
+                btnDeliver.addEventListener('click', async (e) => {
+                    const btn = e.currentTarget;
+                    if (confirm(`¿Marcar "${btn.dataset.prendaDesc}" como entregado?`)) {
+                        await handleMarkSingleAsDelivered(btn.dataset.productId, btn.dataset.prendaDesc);
+                        // Cerrar modal
+                        el.orderDetailsModal.classList.add('hidden');
+                    }
+                });
+            }
+
+            container.appendChild(card);
+        });
+
+        lucide.createIcons();
+    }
+
+    // --- ACCIÓN ENTREGAR UNA PRENDA INDIVIDUAL ---
+    async function handleMarkSingleAsDelivered(productId, desc) {
+        if (!window.supabaseClient.isConfigured) return;
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            const { error } = await supabase
+                .from('productos')
+                .update({ estado: 'entregado' })
+                .eq('id', productId);
+
+            if (error) throw error;
+
+            showToast("Prenda Entregada", `"${desc}" ha sido marcada como entregada.`, "success");
+            await loadData();
+
+        } catch (err) {
+            console.error("Error al entregar prenda:", err);
+            showToast("Error", err.message, "error");
         } finally {
             setLoader(false);
         }

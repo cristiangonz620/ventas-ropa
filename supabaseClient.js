@@ -3,20 +3,12 @@
 // ============================================================================
 
 // Puedes editar estas variables con tus credenciales de Supabase
-// o configurarlas interactivamente desde la interfaz del sistema.
 const SUPABASE_URL_DEFAULT = "https://amtzjxwwytztlpzrtgqn.supabase.co"; // Coloca aquí tu Supabase URL
 const SUPABASE_ANON_KEY_DEFAULT = "sb_publishable_Clcf5sBPeFRwEzHIfCpH5A_xCpV5rfT"; // Coloca aquí tu Supabase Anon Key
 
-// Intentar obtener las credenciales de localStorage o usar los valores por defecto
+// Obtener las credenciales por defecto (mapeadas en código)
 const getSupabaseConfig = () => {
-    let url = localStorage.getItem('supabase_url');
-    let key = localStorage.getItem('supabase_anon_key');
-    
-    // Si están vacíos, usar los valores por defecto
-    url = (url && url.trim() !== "") ? url.trim() : SUPABASE_URL_DEFAULT;
-    key = (key && key.trim() !== "") ? key.trim() : SUPABASE_ANON_KEY_DEFAULT;
-    
-    return { url, key };
+    return { url: SUPABASE_URL_DEFAULT, key: SUPABASE_ANON_KEY_DEFAULT };
 };
 
 const config = getSupabaseConfig();

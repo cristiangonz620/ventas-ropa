@@ -47,6 +47,13 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsUrl: document.getElementById('settings-url'),
         settingsKey: document.getElementById('settings-key'),
 
+        // Login
+        loginOverlay: document.getElementById('login-overlay'),
+        formLogin: document.getElementById('form-login'),
+        loginEmail: document.getElementById('login-email'),
+        loginPassword: document.getElementById('login-password'),
+        btnLogout: document.getElementById('btn-logout'),
+
         historyModal: document.getElementById('history-modal'),
         btnCloseHistory: document.getElementById('btn-close-history'),
         btnCloseHistoryFooter: document.getElementById('btn-close-history-footer'),
@@ -139,9 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Consultar tasa oficial de forma asíncrona al iniciar
         fetchBcvRate();
         
-        if (window.supabaseClient.isConfigured) {
-            loadData();
-        }
+        // Escuchar cambios de autenticación
+        setupAuthListener();
     }
 
     // --- CONSULTAR TASA BCV DESDE API PÚBLICA ---
@@ -177,6 +183,58 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } finally {
             if (isManual) setLoader(false);
+        }
+    }
+
+    // --- CONTROL DE ACCESO (AUTENTICACIÓN) ---
+    function setupAuthListener() {
+        if (!window.supabaseClient.isConfigured) {
+            el.loginOverlay.classList.remove('hidden');
+            return;
+        }
+
+        const supabase = window.supabaseClient.supabase;
+
+        // Escuchar cambios en la sesión de Supabase
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log("Cambio de autenticación:", event, session);
+            if (session && session.user) {
+                // Usuario autenticado
+                el.loginOverlay.classList.add('hidden');
+                el.btnLogout.classList.remove('hidden');
+                loadData();
+            } else {
+                // Usuario no autenticado
+                el.loginOverlay.classList.remove('hidden');
+                el.btnLogout.classList.add('hidden');
+                clearStateAndUI();
+            }
+        });
+    }
+
+    function clearStateAndUI() {
+        state.sales = [];
+        // Limpiar tablas
+        el.salesTableBody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">Inicia sesión para ver los pedidos</td></tr>';
+        el.abonoVentaSelect.innerHTML = '<option value="" disabled selected>Inicia sesión primero...</option>';
+        
+        // Limpiar KPIs
+        el.metricTotalSales.textContent = "$0.00";
+        el.metricTotalCollected.textContent = "$0.00";
+        el.metricTotalPending.textContent = "$0.00";
+        el.metricTotalPendingBs.textContent = "Bs. 0,00";
+        el.kpiCobroPercent.textContent = "0%";
+        el.kpiDeudaActiva.textContent = "0";
+        el.kpiDiagnosticoTexto.textContent = "Inicia sesión para ver el estado financiero";
+        
+        // Si hay gráficos, destruirlos
+        if (state.charts.finances) {
+            state.charts.finances.destroy();
+            state.charts.finances = null;
+        }
+        if (state.charts.products) {
+            state.charts.products.destroy();
+            state.charts.products = null;
         }
     }
 
@@ -295,6 +353,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadData();
             } catch (err) {
                 showToast("Error de conexión", "Asegúrate de que la URL y la Key sean correctas.", "error");
+            }
+        });
+
+        // Iniciar Sesión
+        el.formLogin.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = el.loginEmail.value.trim();
+            const password = el.loginPassword.value;
+            
+            if (!window.supabaseClient.isConfigured) {
+                showToast("Error", "Supabase no está configurado en el sistema.", "error");
+                return;
+            }
+
+            try {
+                setLoader(true);
+                const { data, error } = await window.supabaseClient.supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+                showToast("Acceso Concedido", `¡Bienvenido, ${data.user.email}!`, "success");
+            } catch (err) {
+                console.error("Error al iniciar sesión:", err);
+                showToast("Error de acceso", err.message || "Usuario o contraseña incorrectos.", "error");
+            } finally {
+                setLoader(false);
+            }
+        });
+
+        // Cerrar Sesión
+        el.btnLogout.addEventListener('click', async () => {
+            if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+                try {
+                    setLoader(true);
+                    const { error } = await window.supabaseClient.supabase.auth.signOut();
+                    if (error) throw error;
+                    showToast("Sesión Cerrada", "Has cerrado sesión correctamente.", "success");
+                } catch (err) {
+                    console.error("Error al cerrar sesión:", err);
+                    showToast("Error", "No se pudo cerrar la sesión.", "error");
+                } finally {
+                    setLoader(false);
+                }
             }
         });
 

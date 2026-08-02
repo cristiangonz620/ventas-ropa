@@ -122,9 +122,14 @@
                     </button>
                 </div>
 
-                <!-- Botón Configuración de Supabase -->
-                <button id="btn-open-settings" class="p-2 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-brand-400 transition-all duration-200">
+                <!-- Botón Configuración de Supabase (Oculto por seguridad) -->
+                <button id="btn-open-settings" class="hidden p-2 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-brand-400 transition-all duration-200">
                     <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Botón Cerrar Sesión -->
+                <button id="btn-logout" class="p-2 bg-slate-900 border border-slate-800 hover:border-rose-500/50 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-rose-400 transition-all duration-200" title="Cerrar Sesión">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
                 </button>
             </div>
         </div>
@@ -714,6 +719,54 @@
                     Cerrar
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE LOGIN (Bloquea la aplicación hasta autenticarse) -->
+    <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 px-4">
+        <!-- Fondo animado con círculos brillantes -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-[40%] -left-[20%] w-[80%] h-[80%] rounded-full bg-brand-900/10 blur-[120px] animate-pulse"></div>
+            <div class="absolute -bottom-[40%] -right-[20%] w-[80%] h-[80%] rounded-full bg-emerald-950/10 blur-[120px] animate-pulse"></div>
+        </div>
+
+        <div class="glass-panel w-full max-w-md rounded-3xl p-8 glow-violet relative z-10">
+            <div class="flex flex-col items-center gap-3 mb-8 text-center">
+                <div class="p-3 bg-brand-600/20 rounded-2xl text-brand-400 glow-violet">
+                    <i data-lucide="lock" class="w-8 h-8"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold font-outfit text-white tracking-tight">Acceso al Sistema</h2>
+                <p class="text-xs text-slate-400">Ingresa tus credenciales para administrar ventas y abonos</p>
+            </div>
+
+            <form id="form-login" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="login-email">Correo Electrónico</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
+                            <i data-lucide="mail" class="w-4 h-4"></i>
+                        </span>
+                        <input type="email" id="login-email" required placeholder="tu@correo.com" 
+                            class="w-full pl-10 pr-4 py-3 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="login-password">Contraseña</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
+                            <i data-lucide="key-round" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" id="login-password" required placeholder="••••••••" 
+                            class="w-full pl-10 pr-4 py-3 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-login-submit" 
+                    class="w-full py-3 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 mt-6">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    Iniciar Sesión
+                </button>
+            </form>
         </div>
     </div>
 

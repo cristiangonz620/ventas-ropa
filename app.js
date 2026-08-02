@@ -462,6 +462,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     function setupEventListeners() {
+        // Activar selector de fecha al hacer click en el input
+        document.querySelectorAll('input[type="date"], input[type="datetime-local"]').forEach(input => {
+            input.addEventListener('click', (e) => {
+                try {
+                    e.target.showPicker();
+                } catch (err) {
+                    console.warn("showPicker no soportado", err);
+                }
+            });
+        });
+
         // Cambio de Pestañas (Tabs)
         el.tabDashboard.addEventListener('click', () => switchTab('dashboard'));
         el.tabEncargo.addEventListener('click', () => switchTab('encargo'));

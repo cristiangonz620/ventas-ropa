@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Login
         loginOverlay: document.getElementById('login-overlay'),
+        loginTitle: document.getElementById('login-title'),
         formLogin: document.getElementById('form-login'),
         loginEmail: document.getElementById('login-email'),
         loginPassword: document.getElementById('login-password'),
@@ -513,6 +514,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast("Error de conexión", "Asegúrate de que la URL y la Key sean correctas.", "error");
             }
         });
+
+        // Doble click secreto en título de login abre configuración (para re-configurar en caso de borrar caché)
+        if (el.loginTitle) {
+            el.loginTitle.addEventListener('dblclick', () => {
+                const config = window.supabaseClient.getConfig();
+                el.settingsUrl.value = config.url || '';
+                el.settingsKey.value = config.key || '';
+                el.settingsModal.classList.remove('hidden');
+            });
+        }
 
         // Iniciar Sesión
         el.formLogin.addEventListener('submit', async (e) => {

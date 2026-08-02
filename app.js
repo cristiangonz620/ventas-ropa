@@ -47,6 +47,18 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsUrl: document.getElementById('settings-url'),
         settingsKey: document.getElementById('settings-key'),
 
+        // Agregar Prenda Modal
+        addItemModal: document.getElementById('add-item-modal'),
+        btnCloseAddItem: document.getElementById('btn-close-add-item'),
+        btnCancelAddItem: document.getElementById('btn-cancel-add-item'),
+        formAddItem: document.getElementById('form-add-item'),
+        addItemSaleId: document.getElementById('add-item-sale-id'),
+        addItemClientSubtitle: document.getElementById('add-item-client-subtitle'),
+        addItemDesc: document.getElementById('add-item-desc'),
+        addItemCost: document.getElementById('add-item-cost'),
+        addItemPrice: document.getElementById('add-item-price'),
+        addItemImg: document.getElementById('add-item-img'),
+
         // Login
         loginOverlay: document.getElementById('login-overlay'),
         formLogin: document.getElementById('form-login'),
@@ -235,6 +247,97 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.charts.products) {
             state.charts.products.destroy();
             state.charts.products = null;
+        }
+    }
+
+    // --- AGREGAR PRENDAS A PEDIDOS EXISTENTES ---
+    function openAddItemModal(saleId, clientName) {
+        el.addItemSaleId.value = saleId;
+        el.addItemClientSubtitle.textContent = `Cliente: ${clientName}`;
+        el.formAddItem.reset();
+        el.addItemModal.classList.remove('hidden');
+    }
+
+    async function handleAddItemSubmit(e) {
+        e.preventDefault();
+        
+        if (!window.supabaseClient.isConfigured) {
+            showToast("Acción bloqueada", "Debes configurar Supabase primero.", "error");
+            return;
+        }
+
+        const saleId = el.addItemSaleId.value;
+        const desc = el.addItemDesc.value.trim();
+        const costUsd = parseFloat(el.addItemCost.value) || 0;
+        const priceUsd = parseFloat(el.addItemPrice.value) || 0;
+        const imgUrl = el.addItemImg.value.trim() || null;
+
+        if (priceUsd <= 0 || costUsd < 0) {
+            showToast("Validación", "Los montos de dinero deben ser válidos.", "warning");
+            return;
+        }
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            // 1. Insertar el nuevo producto asociado a la venta (pedido)
+            const { error: insertProductError } = await supabase
+                .from('productos')
+                .insert([{
+                    venta_id: saleId,
+                    descripcion: desc,
+                    precio_costo_usd: costUsd,
+                    precio_venta_usd: priceUsd,
+                    estado: 'encargado',
+                    imagen_url: imgUrl
+                }]);
+
+            if (insertProductError) throw insertProductError;
+
+            // 2. Obtener la venta actual para actualizar sus totales
+            const { data: saleData, error: fetchSaleError } = await supabase
+                .from('ventas')
+                .select('monto_total_usd, saldo_pendiente_usd')
+                .eq('id', saleId)
+                .single();
+
+            if (fetchSaleError) throw fetchSaleError;
+
+            const currentTotal = parseFloat(saleData.monto_total_usd) || 0;
+            const currentPending = parseFloat(saleData.saldo_pendiente_usd) || 0;
+
+            const newTotal = currentTotal + priceUsd;
+            const newPending = currentPending + priceUsd;
+
+            // 3. Actualizar la venta en Supabase
+            let newEstadoPago = 'pendiente';
+            const abonado = newTotal - newPending;
+            if (newPending === 0) {
+                newEstadoPago = 'completado';
+            } else if (abonado > 0) {
+                newEstadoPago = 'parcial';
+            }
+
+            const { error: updateSaleError } = await supabase
+                .from('ventas')
+                .update({
+                    monto_total_usd: newTotal,
+                    saldo_pendiente_usd: newPending,
+                    estado_pago: newEstadoPago
+                })
+                .eq('id', saleId);
+
+            if (updateSaleError) throw updateSaleError;
+
+            showToast("Prenda Agregada", `Se agregó "${desc}" al pedido de este cliente.`, "success");
+            el.addItemModal.classList.add('hidden');
+            await loadData();
+        } catch (err) {
+            console.error("Error al agregar prenda:", err);
+            showToast("Error de Operación", "No se pudo agregar la prenda: " + err.message, "error");
+        } finally {
+            setLoader(false);
         }
     }
 
@@ -538,6 +641,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         el.precioCosto.addEventListener('input', calculateProfit);
         el.precioVenta.addEventListener('input', calculateProfit);
+
+        // Cancelar / Cerrar Agregar Prenda
+        el.btnCloseAddItem.addEventListener('click', () => el.addItemModal.classList.add('hidden'));
+        el.btnCancelAddItem.addEventListener('click', () => el.addItemModal.classList.add('hidden'));
+        
+        // Registrar Agregar Prenda submit
+        el.formAddItem.addEventListener('submit', handleAddItemSubmit);
     }
 
     // --- CAMBIAR PESTAÑA ---
@@ -653,7 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const filtered = state.sales.filter(sale => {
             const clientName = sale.clientes?.nombre?.toLowerCase() || "";
             const clientTel = sale.clientes?.telefono?.toLowerCase() || "";
-            const prodDesc = sale.productos?.descripcion?.toLowerCase() || "";
+            const productsList = sale.productos || [];
+            const prodDesc = productsList.map(p => p.descripcion).join(" ").toLowerCase();
             
             const matchQuery = clientName.includes(query) || clientTel.includes(query) || prodDesc.includes(query);
             const matchStatus = status === 'all' || sale.estado_pago === status;
@@ -674,7 +785,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filtered.forEach(sale => {
             const client = sale.clientes || { nombre: 'Desconocido', telefono: '-' };
-            const product = sale.productos || { descripcion: 'Prenda no identificada', precio_venta_usd: 0, estado: 'encargado', imagen_url: null };
+            const productsList = sale.productos || [];
+            const firstProduct = productsList[0] || { descripcion: 'Prenda no identificada', precio_venta_usd: 0, estado: 'encargado', imagen_url: null };
+            
+            const combinedDescription = productsList.map(p => p.descripcion).join(", ") || 'Prenda no identificada';
+            const imgUrl = firstProduct.imagen_url || DEFAULT_CLOTHING_IMAGE;
             
             const ventaTotal = parseFloat(sale.monto_total_usd) || 0;
             const saldoPendiente = parseFloat(sale.saldo_pendiente_usd) || 0;
@@ -695,13 +810,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText = "Pendiente";
             }
 
-            // Imagen del producto (con fallback)
-            const imgUrl = product.imagen_url || DEFAULT_CLOTHING_IMAGE;
-
             // Badge de entrega de producto
+            const allDelivered = productsList.length > 0 && productsList.every(p => p.estado === 'entregado');
             let deliverBadgeClass = "";
             let deliverText = "";
-            if (product.estado === 'entregado') {
+            if (allDelivered) {
                 deliverBadgeClass = "bg-slate-900 text-slate-400 border border-slate-800";
                 deliverText = "Entregado";
             } else if (sale.estado_pago === 'completado') {
@@ -728,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
                             alt="Prenda">
                         <div class="truncate">
-                            <div class="text-slate-200 font-medium">${product.descripcion}</div>
+                            <div class="text-slate-200 font-medium">${combinedDescription}</div>
                             <div class="mt-1 flex items-center gap-1.5">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${deliverBadgeClass}">
                                     ${deliverText}
@@ -759,12 +872,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="btn-view-history p-1.5 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-lg text-slate-400 hover:text-brand-400 transition-all" 
                             data-sale-id="${sale.id}" 
                             data-client-name="${client.nombre}" 
-                            data-product-desc="${product.descripcion}" 
+                            data-product-desc="${combinedDescription}" 
                             data-total-usd="${fmt.usd(abonado)}"
                             title="Ver Historial de Abonos">
                             <i data-lucide="scroll" class="w-4 h-4"></i>
                         </button>
                         
+                        <!-- Botón Agregar Prenda -->
+                        <button class="btn-add-item-direct p-1.5 bg-brand-950 border border-brand-900 hover:border-brand-500 hover:bg-brand-900/50 rounded-lg text-brand-400 hover:text-white transition-all" 
+                            data-sale-id="${sale.id}" 
+                            data-client-name="${client.nombre}"
+                            title="Agregar prenda a este pedido">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+
                         ${saldoPendiente > 0 ? `
                             <button class="btn-abono-direct p-1.5 bg-emerald-950 border border-emerald-900 hover:border-emerald-500 hover:bg-emerald-900/50 rounded-lg text-emerald-400 hover:text-white transition-all" 
                                 data-sale-id="${sale.id}" 
@@ -773,11 +894,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                         ` : ''}
                         
-                        ${product.estado !== 'entregado' ? `
+                        ${!allDelivered ? `
                             <button class="btn-mark-delivered p-1.5 bg-brand-950 border border-brand-900 hover:border-brand-500 hover:bg-brand-900/50 rounded-lg text-brand-400 hover:text-white transition-all" 
-                                data-product-id="${product.id}" 
-                                data-prenda="${product.descripcion}"
-                                title="Marcar como Entregado al Cliente">
+                                data-sale-id="${sale.id}" 
+                                data-prenda="${combinedDescription}"
+                                title="Marcar todas las prendas como Entregadas">
                                 <i data-lucide="package-check" class="w-4 h-4"></i>
                             </button>
                         ` : ''}
@@ -790,6 +911,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const btn = e.currentTarget;
                 openAbonosHistory(btn.dataset.saleId, btn.dataset.clientName, btn.dataset.productDesc, btn.dataset.totalUsd);
             });
+
+            // Event handler para agregar prenda
+            const btnAddItem = tr.querySelector('.btn-add-item-direct');
+            if (btnAddItem) {
+                btnAddItem.addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    openAddItemModal(btn.dataset.saleId, btn.dataset.clientName);
+                });
+            }
 
             // Event handler para abonar directo
             const btnAbono = tr.querySelector('.btn-abono-direct');
@@ -806,10 +936,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const btnDeliver = tr.querySelector('.btn-mark-delivered');
             if (btnDeliver) {
                 btnDeliver.addEventListener('click', (e) => {
-                    const prodId = e.currentTarget.dataset.productId;
+                    const saleId = e.currentTarget.dataset.saleId;
                     const desc = e.currentTarget.dataset.prenda;
-                    if (confirm(`¿Estás seguro de que deseas marcar "${desc}" como entregado?`)) {
-                        handleMarkAsDelivered(prodId);
+                    if (confirm(`¿Estás seguro de que deseas marcar como entregadas las prendas: "${desc}"?`)) {
+                        handleMarkAsDelivered(saleId);
                     }
                 });
             }
@@ -821,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ACCIÓN MARCAR COMO ENTREGADO ---
-    async function handleMarkAsDelivered(productId) {
+    async function handleMarkAsDelivered(saleId) {
         if (!window.supabaseClient.isConfigured) return;
 
         setLoader(true);
@@ -831,15 +961,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const { error } = await supabase
                 .from('productos')
                 .update({ estado: 'entregado' })
-                .eq('id', productId);
+                .eq('venta_id', saleId);
 
             if (error) throw error;
 
-            showToast("Producto Entregado", "El estado del producto ha sido cambiado a 'Entregado'.", "success");
+            showToast("Pedido Entregado", "Todas las prendas del pedido han sido cambiadas a 'Entregado'.", "success");
             await loadData();
         } catch (err) {
-            console.error("Error al entregar producto:", err);
-            showToast("Error de Operación", "No se pudo actualizar el estado del producto: " + err.message, "error");
+            console.error("Error al entregar pedido:", err);
+            showToast("Error de Operación", "No se pudo actualizar el estado de entrega: " + err.message, "error");
         } finally {
             setLoader(false);
         }
@@ -859,7 +989,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         activeSales.forEach(sale => {
             const clientName = sale.clientes?.nombre || 'Desconocido';
-            const productDesc = sale.productos?.descripcion || 'Prenda';
+            const productsList = sale.productos || [];
+            const productDesc = productsList.map(p => p.descripcion).join(", ") || 'Prenda';
             const pending = parseFloat(sale.saldo_pendiente_usd) || 0;
 
             const option = document.createElement('option');
@@ -1004,34 +1135,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientId = newClient.id;
             }
 
-            // 2. Registrar el Producto (con el nuevo campo imagen_url)
-            const { data: newProduct, error: insertProductError } = await supabase
+            // 2. Registrar la Venta primero (para obtener el id)
+            const { data: newSale, error: insertSaleError } = await supabase
+                .from('ventas')
+                .insert([{
+                    cliente_id: clientId,
+                    monto_total_usd: priceUsd,
+                    saldo_pendiente_usd: priceUsd,
+                    estado_pago: 'pendiente'
+                }])
+                .select('id')
+                .single();
+
+            if (insertSaleError) throw insertSaleError;
+            const saleId = newSale.id;
+
+            // 3. Registrar el Producto asociado a la venta
+            const { error: insertProductError } = await supabase
                 .from('productos')
                 .insert([{
+                    venta_id: saleId,
                     descripcion: productDesc,
                     precio_costo_usd: costUsd,
                     precio_venta_usd: priceUsd,
                     estado: 'encargado',
                     imagen_url: productImgUrl
-                }])
-                .select('id')
-                .single();
-
-            if (insertProductError) throw insertProductError;
-            const productId = newProduct.id;
-
-            // 3. Registrar la Venta
-            const { error: insertSaleError } = await supabase
-                .from('ventas')
-                .insert([{
-                    cliente_id: clientId,
-                    producto_id: productId,
-                    monto_total_usd: priceUsd,
-                    saldo_pendiente_usd: priceUsd,
-                    estado_pago: 'pendiente'
                 }]);
 
-            if (insertSaleError) throw insertSaleError;
+            if (insertProductError) throw insertProductError;
 
             showToast("Encargo Guardado", `Se ha registrado el pedido de "${productDesc}" para ${clientName}.`, "success");
             
@@ -1269,15 +1400,19 @@ document.addEventListener('DOMContentLoaded', () => {
         periodSales.forEach(sale => {
             const total = parseFloat(sale.monto_total_usd) || 0;
             const pending = parseFloat(sale.saldo_pendiente_usd) || 0;
-            const cost = parseFloat(sale.productos?.precio_costo_usd) || 0;
+            
+            const productsList = sale.productos || [];
+            const cost = productsList.reduce((acc, p) => acc + (parseFloat(p.precio_costo_usd) || 0), 0);
 
             totalVentas += total;
             totalDeuda += pending;
             totalInversion += cost;
 
             // Popularidad de productos
-            const desc = sale.productos?.descripcion || "Desconocido";
-            productSalesCount[desc] = (productSalesCount[desc] || 0) + 1;
+            productsList.forEach(p => {
+                const desc = p.descripcion || "Desconocido";
+                productSalesCount[desc] = (productSalesCount[desc] || 0) + 1;
+            });
         });
 
         const totalAbonos = Math.max(0, totalVentas - totalDeuda);

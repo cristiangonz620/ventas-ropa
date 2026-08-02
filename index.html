@@ -675,6 +675,64 @@
         </div>
     </div>
 
+    <!-- MODAL AGREGAR PRENDA A PEDIDO EXISTENTE -->
+    <div id="add-item-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200">
+            <button id="btn-close-add-item" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-2 bg-brand-500/20 rounded-xl text-brand-400">
+                    <i data-lucide="shirt" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold font-outfit text-white">Agregar Prenda al Pedido</h3>
+                    <p class="text-xs text-slate-400" id="add-item-client-subtitle">Cargando cliente...</p>
+                </div>
+            </div>
+
+            <form id="form-add-item" class="space-y-4">
+                <input type="hidden" id="add-item-sale-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="add-item-desc">Descripción de la Prenda</label>
+                    <input type="text" id="add-item-desc" required placeholder="Ej: Suéter tejida color beige manga larga" 
+                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="add-item-cost">Precio Costo ($ USD)</label>
+                        <input type="number" id="add-item-cost" required step="0.01" min="0" placeholder="0.00" 
+                            class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="add-item-price">Precio Venta ($ USD)</label>
+                        <input type="number" id="add-item-price" required step="0.01" min="0" placeholder="0.00" 
+                            class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="add-item-img">URL de la Imagen (Opcional)</label>
+                    <input type="url" id="add-item-img" placeholder="https://ejemplo.com/imagen.jpg" 
+                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                </div>
+
+                <div class="pt-4 flex items-center justify-end gap-3">
+                    <button type="button" id="btn-cancel-add-item" class="px-5 py-2 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all text-xs">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Agregar Prenda
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL DETALLE DE ABONOS (Ver historial de abonos de una venta) -->
     <div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
         <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200">

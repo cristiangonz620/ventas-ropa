@@ -23,9 +23,21 @@ CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
 -- ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT;
 -- ==========================================
 
--- 2. Tabla de Productos
+-- 2. Tabla de Ventas
+CREATE TABLE IF NOT EXISTS ventas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cliente_id UUID REFERENCES clientes(id) ON DELETE CASCADE NOT NULL,
+    monto_total_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    saldo_pendiente_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    estado_pago TEXT NOT NULL DEFAULT 'pendiente',
+    creado_en TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT chk_estado_pago CHECK (estado_pago IN ('pendiente', 'parcial', 'completado'))
+);
+
+-- 3. Tabla de Productos
 CREATE TABLE IF NOT EXISTS productos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    venta_id UUID REFERENCES ventas(id) ON DELETE CASCADE NOT NULL,
     descripcion TEXT NOT NULL,
     precio_costo_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     precio_venta_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
@@ -35,17 +47,8 @@ CREATE TABLE IF NOT EXISTS productos (
     CONSTRAINT chk_estado_producto CHECK (estado IN ('disponible', 'encargado', 'entregado'))
 );
 
--- 3. Tabla de Ventas
-CREATE TABLE IF NOT EXISTS ventas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cliente_id UUID REFERENCES clientes(id) ON DELETE CASCADE NOT NULL,
-    producto_id UUID REFERENCES productos(id) ON DELETE CASCADE NOT NULL,
-    monto_total_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-    saldo_pendiente_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-    estado_pago TEXT NOT NULL DEFAULT 'pendiente',
-    creado_en TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT chk_estado_pago CHECK (estado_pago IN ('pendiente', 'parcial', 'completado'))
-);
+-- Indexar productos por venta_id para consultas rápidas
+CREATE INDEX IF NOT EXISTS idx_productos_venta_id ON productos(venta_id);
 
 -- 4. Tabla de Abonos
 CREATE TABLE IF NOT EXISTS abonos (
@@ -72,20 +75,21 @@ SELECT
     c.id AS cliente_id,
     c.nombre AS cliente_nombre,
     c.telefono AS cliente_telefono,
-    p.id AS producto_id,
-    p.descripcion AS producto_descripcion,
-    p.precio_costo_usd,
-    p.precio_venta_usd,
-    p.imagen_url, -- Incluida imagen_url
     v.monto_total_usd,
     v.saldo_pendiente_usd,
     (v.monto_total_usd - v.saldo_pendiente_usd) AS monto_abonado_usd,
     v.estado_pago,
-    p.estado AS producto_estado,
-    v.creado_en AS fecha_venta
+    v.creado_en AS fecha_venta,
+    string_agg(p.descripcion, ', ') AS productos_descripcion,
+    (array_agg(p.imagen_url ORDER BY p.creado_en))[1] AS imagen_url,
+    CASE 
+        WHEN 'encargado' = ANY(array_agg(p.estado)) THEN 'encargado'
+        ELSE 'entregado'
+    END AS producto_estado
 FROM ventas v
 JOIN clientes c ON v.cliente_id = c.id
-JOIN productos p ON v.producto_id = p.id;
+LEFT JOIN productos p ON p.venta_id = v.id
+GROUP BY v.id, c.id, c.nombre, c.telefono;
 
 -- ==========================================
 -- POLÍTICAS RLS (Seguridad a Nivel de Fila)

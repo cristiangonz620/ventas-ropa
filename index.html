@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StitchControl - Ropa por Encargo & Control de Abonos</title>
+    
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            300: '#c084fc',
+                            400: '#a855f7',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95',
+                            950: '#1e1b4b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- CSS Adicional para efectos premium -->
+    <style>
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-input {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease-in-out;
+        }
+        .glass-input:focus {
+            background: rgba(15, 23, 42, 0.7);
+            border-color: #8b5cf6;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.25);
+            outline: none;
+        }
+        .glow-violet {
+            box-shadow: 0 0 40px -10px rgba(139, 92, 246, 0.3);
+        }
+        .glow-green {
+            box-shadow: 0 0 40px -10px rgba(34, 197, 94, 0.2);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.6);
+        }
+    </style>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Supabase CDN Client & Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="h-full flex flex-col font-sans overflow-x-hidden">
+
+    <!-- Notificaciones flotantes -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
+
+    <!-- Barra de navegación superior -->
+    <header class="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-xl text-white shadow-lg shadow-brand-500/25">
+                    <i data-lucide="scissors" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold font-outfit tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">StitchControl</h1>
+                    <p class="text-xs text-brand-400 font-medium tracking-wider uppercase">Ropa por Encargo</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <!-- Tasa BCV Global -->
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 text-sm">
+                    <span class="text-xs font-semibold text-slate-400">Tasa BCV del Día:</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-slate-500">Bs.</span>
+                        <input id="global-bcv-rate" type="number" step="0.01" value="45.50" 
+                            class="w-16 bg-transparent text-emerald-400 font-bold border-none p-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-right"
+                            title="Haz clic para actualizar la tasa general">
+                    </div>
+                    <button id="btn-update-all-bcv" class="text-slate-400 hover:text-white transition-colors" title="Recalcular todo con esta tasa">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Botón Configuración de Supabase -->
+                <button id="btn-open-settings" class="p-2 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-brand-400 transition-all duration-200">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
+        
+        <!-- Alerta de Supabase no configurado -->
+        <div id="setup-warning" class="hidden flex items-center justify-between p-4 mb-2 rounded-2xl bg-amber-950/40 border border-amber-800/50 text-amber-200 glow-yellow animate-pulse">
+            <div class="flex items-center gap-3">
+                <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400 shrink-0"></i>
+                <div>
+                    <h4 class="font-semibold text-sm">Conexión requerida</h4>
+                    <p class="text-xs text-amber-300">Por favor, configura tus credenciales de Supabase (URL y Anon Key) para poder utilizar el sistema.</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('btn-open-settings').click()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-slate-950 font-semibold rounded-xl text-xs transition-all shadow-md">
+                Configurar Ahora
+            </button>
+        </div>
+
+        <!-- Indicador de Carga Global -->
+        <div id="global-loader" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+            <div class="flex flex-col items-center gap-4">
+                <div class="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <p class="text-sm text-slate-300 font-medium">Procesando solicitud...</p>
+            </div>
+        </div>
+
+        <!-- Sección de Métricas (Dashboard) -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Venta Total USD -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300 glow-violet">
+                <div class="absolute -right-6 -bottom-6 text-brand-500/10 transition-transform duration-300 group-hover:scale-110">
+                    <i data-lucide="circle-dollar-sign" class="w-28 h-28"></i>
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Vendido Total</span>
+                    <div class="p-2 bg-brand-500/10 rounded-lg text-brand-400">
+                        <i data-lucide="circle-dollar-sign" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold font-outfit text-white" id="metric-total-sales">$0.00</h3>
+                <p class="text-xs text-slate-400 mt-1">Suma acumulada de todas las ventas</p>
+            </div>
+
+            <!-- Recaudado USD -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300 glow-green">
+                <div class="absolute -right-6 -bottom-6 text-emerald-500/10 transition-transform duration-300 group-hover:scale-110">
+                    <i data-lucide="wallet" class="w-28 h-28"></i>
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Recaudado (Abonos)</span>
+                    <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                        <i data-lucide="wallet" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold font-outfit text-emerald-400" id="metric-total-collected">$0.00</h3>
+                <p class="text-xs text-slate-400 mt-1">Monto total recibido en USD</p>
+            </div>
+
+            <!-- Cuentas Por Cobrar USD -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300">
+                <div class="absolute -right-6 -bottom-6 text-rose-500/10 transition-transform duration-300 group-hover:scale-110">
+                    <i data-lucide="hand-coins" class="w-28 h-28"></i>
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Por Cobrar ($)</span>
+                    <div class="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+                        <i data-lucide="hand-coins" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold font-outfit text-rose-400" id="metric-total-pending">$0.00</h3>
+                <p class="text-xs text-slate-400 mt-1">Saldo pendiente total de clientes</p>
+            </div>
+
+            <!-- Por Cobrar Bs -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300">
+                <div class="absolute -right-6 -bottom-6 text-amber-500/10 transition-transform duration-300 group-hover:scale-110">
+                    <i data-lucide="arrow-right-left" class="w-28 h-28"></i>
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Por Cobrar (Bs.)</span>
+                    <div class="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                        <span class="text-xs font-bold">Bs.</span>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-bold font-outfit text-amber-400" id="metric-total-pending-bs">Bs. 0.00</h3>
+                <p class="text-xs text-slate-400 mt-1">Equivalente a la tasa BCV actual</p>
+            </div>
+        </section>
+
+        <!-- Navegación por Pestañas (Tabs) -->
+        <div class="flex border-b border-slate-900">
+            <button id="tab-dashboard" class="px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-400 flex items-center gap-2 hover:bg-slate-900/30 transition-all">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                Resumen General & Pedidos
+            </button>
+            <button id="tab-encargo" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                Nuevo Encargo
+            </button>
+            <button id="tab-abonos" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all">
+                <i data-lucide="receipt" class="w-4 h-4"></i>
+                Registrar Abono
+            </button>
+            <button id="tab-reportes" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all">
+                <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                Gráficas & Reportes
+            </button>
+        </div>
+
+        <!-- Secciones de Contenido -->
+        <div class="flex-1 flex flex-col">
+
+            <!-- PESTAÑA 1: TABLA RESUMEN -->
+            <div id="content-dashboard" class="flex flex-col gap-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold font-outfit">Control de Pedidos y Cuentas</h2>
+                        <p class="text-xs text-slate-400">Listado general de encargos, estados de cobro y equivalentes en moneda local</p>
+                    </div>
+                    
+                    <!-- Filtros -->
+                    <div class="flex items-center gap-3 self-stretch md:self-auto">
+                        <div class="relative flex-1 md:w-64">
+                            <span class="absolute left-3 top-2.5 text-slate-500">
+                                <i data-lucide="search" class="w-4.5 h-4.5"></i>
+                            </span>
+                            <input id="search-filter" type="text" placeholder="Buscar cliente o prenda..." 
+                                class="w-full pl-9 pr-4 py-2 rounded-xl text-sm bg-slate-900/60 border border-slate-800 focus:border-brand-500 focus:outline-none text-slate-200">
+                        </div>
+                        
+                        <select id="status-filter" class="px-3 py-2 rounded-xl text-sm bg-slate-900/60 border border-slate-800 focus:border-brand-500 focus:outline-none text-slate-200">
+                            <option value="all">Todos los pagos</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="parcial">Abono Parcial</option>
+                            <option value="completado">Completados</option>
+                        </select>
+
+                        <button id="btn-refresh-data" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors" title="Actualizar datos">
+                            <i data-lucide="rotate-cw" class="w-4.5 h-4.5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla Interactiva -->
+                <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-800 bg-slate-950/80 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                    <th class="py-4 px-6">Cliente</th>
+                                    <th class="py-4 px-6">Prenda / Descripción</th>
+                                    <th class="py-4 px-6 text-right">Precio Venta ($)</th>
+                                    <th class="py-4 px-6 text-right">Abonado ($)</th>
+                                    <th class="py-4 px-6 text-right">Resta ($)</th>
+                                    <th class="py-4 px-6 text-right">Resta (Bs.)</th>
+                                    <th class="py-4 px-6 text-center">Estado Pago</th>
+                                    <th class="py-4 px-6 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sales-table-body" class="divide-y divide-slate-900 text-sm text-slate-300">
+                                <!-- Carga inicial estática -->
+                                <tr>
+                                    <td colspan="8" class="py-12 text-center text-slate-500">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Cargando listado de pedidos...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 2: NUEVO ENCARGO -->
+            <div id="content-encargo" class="hidden max-w-3xl mx-auto w-full">
+                <div class="glass-panel rounded-3xl p-8 relative overflow-hidden glow-violet">
+                    <div class="absolute right-0 top-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl"></div>
+                    
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-brand-500/20 rounded-xl text-brand-400">
+                            <i data-lucide="shirt" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold font-outfit">Registrar Nuevo Pedido</h2>
+                            <p class="text-xs text-slate-400">Ingresa los datos del cliente y los detalles de la ropa solicitada</p>
+                        </div>
+                    </div>
+
+                    <form id="form-encargo" class="space-y-6">
+                        <!-- Sección Cliente -->
+                        <div class="border-b border-slate-900 pb-5">
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-brand-400 mb-4 flex items-center gap-1.5">
+                                <i data-lucide="user" class="w-3.5 h-3.5"></i> Información del Cliente
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="cliente-nombre">Nombre Completo</label>
+                                    <input type="text" id="cliente-nombre" required placeholder="Ej. María Pérez" 
+                                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="cliente-telefono">Teléfono de Contacto</label>
+                                    <input type="tel" id="cliente-telefono" placeholder="Ej. 0412-5556677" 
+                                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sección Prenda -->
+                        <div>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-brand-400 mb-4 flex items-center gap-1.5">
+                                <i data-lucide="tag" class="w-3.5 h-3.5"></i> Detalles del Producto y Precios
+                            </h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="prenda-descripcion">Descripción de la Prenda</label>
+                                    <input type="text" id="prenda-descripcion" required placeholder="Ej. Franela oversize de algodón negra - Talla M" 
+                                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-xs font-medium text-slate-400 mb-1.5" for="prenda-imagen-url">URL de Imagen del Producto (Opcional)</label>
+                                        <input type="url" id="prenda-imagen-url" placeholder="Ej. https://url-de-la-imagen.com/prenda.jpg" 
+                                            class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                    </div>
+                                    <div class="h-[46px] flex items-center justify-center rounded-xl bg-slate-900/60 border border-slate-800 p-1 relative group overflow-hidden">
+                                        <img id="prenda-preview" src="" class="hidden h-full object-contain rounded-lg transition-transform duration-200 group-hover:scale-105" alt="Previsualización">
+                                        <div id="prenda-preview-placeholder" class="text-[10px] text-slate-500 flex items-center gap-1.5">
+                                            <i data-lucide="image" class="w-4 h-4"></i> Sin vista previa
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-400 mb-1.5" for="precio-costo">Costo de Adquisición ($ USD)</label>
+                                        <div class="relative">
+                                            <span class="absolute left-4 top-3 text-slate-500 text-sm">$</span>
+                                            <input type="number" id="precio-costo" required step="0.01" min="0" placeholder="0.00" 
+                                                class="w-full pl-8 pr-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                        </div>
+                                        <span class="text-[10px] text-slate-500">Monto invertido en la compra</span>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-400 mb-1.5" for="precio-venta">Precio de Venta ($ USD)</label>
+                                        <div class="relative">
+                                            <span class="absolute left-4 top-3 text-slate-500 text-sm">$</span>
+                                            <input type="number" id="precio-venta" required step="0.01" min="0" placeholder="0.00" 
+                                                class="w-full pl-8 pr-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                        </div>
+                                        <span class="text-[10px] text-slate-500">Monto final a cobrar al cliente</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contenedor de Ganancia Calculada -->
+                                <div id="encargo-profit-container" class="hidden p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 grid grid-cols-2 gap-4 text-xs">
+                                    <div>
+                                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Ganancia Neta Estimada</span>
+                                        <span id="encargo-profit-usd" class="text-sm font-bold text-emerald-400">$0.00</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Porcentaje de Ganancia (Markup)</span>
+                                        <span id="encargo-profit-percent" class="text-sm font-bold text-brand-400">0.00%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botón Guardar -->
+                        <div class="pt-4 flex items-center justify-end gap-3">
+                            <button type="reset" class="px-5 py-2.5 text-sm font-medium border border-slate-800 hover:border-slate-700 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all">
+                                Limpiar Formulario
+                            </button>
+                            <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-sm hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center gap-2 shadow-lg shadow-brand-600/20">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                Guardar Encargo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: REGISTRAR ABONO -->
+            <div id="content-abonos" class="hidden max-w-3xl mx-auto w-full">
+                <div class="glass-panel rounded-3xl p-8 relative overflow-hidden glow-green">
+                    <div class="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
+                    
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
+                            <i data-lucide="banknote" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold font-outfit">Registrar Abono Progresivo</h2>
+                            <p class="text-xs text-slate-400">Abona saldo a un pedido pendiente y calcula la tasa de cambio al instante</p>
+                        </div>
+                    </div>
+
+                    <form id="form-abono" class="space-y-6">
+                        <!-- Seleccionar Venta Activa -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5" for="abono-venta-select">Pedido / Cuenta por Cobrar</label>
+                            <select id="abono-venta-select" required 
+                                class="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:outline-none text-slate-200">
+                                <option value="" disabled selected>Selecciona un pedido pendiente...</option>
+                            </select>
+                        </div>
+
+                        <!-- Sección Montos y Moneda -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <!-- Selección de Moneda -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5">Moneda del Abono</label>
+                                <div class="flex rounded-xl bg-slate-900/80 p-1 border border-slate-800 h-[46px] items-center">
+                                    <button type="button" id="btn-currency-bs" class="flex-1 h-full rounded-lg text-xs font-semibold bg-brand-600 text-white transition-all">Bs. (Bolívares)</button>
+                                    <button type="button" id="btn-currency-usd" class="flex-1 h-full rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all">USD ($)</button>
+                                </div>
+                            </div>
+
+                            <!-- Monto a Abonar -->
+                            <div>
+                                <label id="label-abono-monto" class="block text-xs font-medium text-slate-400 mb-1.5" for="abono-monto-input">Monto a Abonar (Bs.)</label>
+                                <div class="relative">
+                                    <span id="symbol-abono-monto" class="absolute left-4 top-3 text-slate-500 text-sm">Bs.</span>
+                                    <input type="number" id="abono-monto-input" required step="0.01" min="0.01" placeholder="0.00" 
+                                        class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                                <div class="flex justify-between mt-1 text-[10px]">
+                                    <span class="text-slate-500">Monto entregado por el cliente</span>
+                                    <span id="abono-max-info" class="text-slate-400">Máx: Bs. 0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Tasa BCV de la Operación -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5" for="abono-tasa-bcv">Tasa BCV de la Operación</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-3 text-slate-500 text-sm">Bs.</span>
+                                    <input type="number" id="abono-tasa-bcv" required step="0.01" min="1" placeholder="Cargando..." 
+                                        class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                                <span class="text-[10px] text-slate-500 mt-1 block">Tasa del Banco Central de Venezuela</span>
+                            </div>
+                        </div>
+
+                        <!-- Detalle de Conversión e Información de saldo -->
+                        <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-4">
+                            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Conversión y Proyección de Deuda</h4>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div>
+                                    <span id="label-abono-conversion" class="text-[10px] text-slate-500 block uppercase font-semibold">Equivalente en Dólares ($)</span>
+                                    <span class="text-xl font-black text-emerald-400 font-outfit" id="abono-conversion-result">$0.00</span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-500 block uppercase font-semibold">Deuda Actual</span>
+                                    <span class="text-sm font-semibold text-slate-300 block" id="abono-current-balance-usd">$0.00</span>
+                                    <span class="text-[10px] text-slate-500" id="abono-current-balance-bs">Bs. 0.00</span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-500 block uppercase font-semibold">Deuda Restante Proyectada</span>
+                                    <span class="text-sm font-semibold text-brand-400 block" id="abono-projected-balance-usd">$0.00</span>
+                                    <span class="text-[10px] text-brand-400/80" id="abono-projected-balance-bs">Bs. 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Método de Pago -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5" for="abono-metodo">Método de Pago</label>
+                                <select id="abono-metodo" required 
+                                    class="w-full px-4 py-2.5 rounded-xl text-sm bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:outline-none text-slate-200">
+                                    <option value="" disabled selected>Selecciona método...</option>
+                                    <option value="Pago Móvil">Pago Móvil (Bs.)</option>
+                                    <option value="Transferencia">Transferencia Bancaria (Bs.)</option>
+                                    <option value="Efectivo USD">Efectivo ($)</option>
+                                    <option value="Efectivo Bs.">Efectivo (Bs.)</option>
+                                    <option value="Zelle">Zelle ($)</option>
+                                    <option value="Binance Pay">Binance Pay ($)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 mb-1.5" for="abono-fecha">Fecha del Pago</label>
+                                <input type="datetime-local" id="abono-fecha" required
+                                    class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="pt-4 flex items-center justify-end gap-3">
+                            <button type="button" id="btn-cancel-abono" class="px-5 py-2.5 text-sm font-medium border border-slate-800 hover:border-slate-700 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-slate-950 font-bold rounded-xl text-sm hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                Guardar Abono
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 4: GRÁFICAS & REPORTES -->
+            <div id="content-reportes" class="hidden flex flex-col gap-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold font-outfit">Reportes de Rendimiento y Análisis</h2>
+                        <p class="text-xs text-slate-400">Estadísticas de cobranza, ganancias, inversión y salud del negocio</p>
+                    </div>
+                    <!-- Filtro de Rango de Fechas -->
+                    <div class="flex items-center gap-3 bg-slate-900/60 border border-slate-800 p-2 rounded-2xl">
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                            <span>Desde:</span>
+                            <input type="date" id="reportes-fecha-inicio" 
+                                class="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl focus:border-brand-500 focus:outline-none text-slate-200">
+                        </div>
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                            <span>Hasta:</span>
+                            <input type="date" id="reportes-fecha-fin" 
+                                class="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl focus:border-brand-500 focus:outline-none text-slate-200">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjetas KPI del Negocio -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- KPI 1: Ventas y Costos -->
+                    <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
+                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ventas de Periodo</span>
+                        <div class="text-base font-black text-white mt-1" id="kpi-ventas-totales">$0.00</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Inversión Costo: <span id="kpi-inversion-total" class="font-semibold text-slate-400">$0.00</span></div>
+                    </div>
+                    
+                    <!-- KPI 2: Ganancia Proyectada -->
+                    <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
+                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ganancia Bruta</span>
+                        <div class="text-base font-black text-emerald-400 mt-1" id="kpi-ganancia-total">$0.00</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Rentabilidad (Markup): <span id="kpi-rentabilidad-percent" class="font-semibold text-brand-400">0%</span></div>
+                    </div>
+
+                    <!-- KPI 3: Punto de Equilibrio (Retorno de Inversión) -->
+                    <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
+                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Retorno de Costos</span>
+                        <div class="text-base font-black mt-1" id="kpi-retorno-percent">0%</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Costo Recobrado: <span id="kpi-abonos-total" class="font-semibold text-emerald-400">$0.00</span></div>
+                    </div>
+
+                    <!-- KPI 4: Salud Financiera (Deuda y Cobro) -->
+                    <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
+                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Índice de Cobro</span>
+                        <div class="text-base font-black mt-1 text-sky-400" id="kpi-cobro-percent">0%</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Crédito en la Calle: <span id="kpi-deuda-activa" class="font-semibold text-rose-400">$0.00</span></div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta de Diagnóstico / Recomendación Financiera -->
+                <div id="kpi-diagnostico-container" class="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 text-xs flex gap-3 items-start">
+                    <div class="p-1.5 rounded-xl bg-brand-500/20 text-brand-400 shrink-0 mt-0.5 animate-pulse">
+                        <i data-lucide="activity" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-200">Diagnóstico de Salud Financiera</h4>
+                        <p id="kpi-diagnostico-texto" class="text-slate-400 mt-1 leading-relaxed">Selecciona un rango de fechas para evaluar la liquidez y rentabilidad de tu negocio.</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Gráfica Finanzas -->
+                    <div class="glass-panel rounded-3xl p-6 relative overflow-hidden glow-violet flex flex-col items-center">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-1.5 self-start">
+                            <i data-lucide="pie-chart" class="w-4.5 h-4.5 text-brand-400"></i> Resumen de Balance Financiero ($)
+                        </h3>
+                        <div class="w-full max-w-[280px] h-[280px] flex items-center justify-center">
+                            <canvas id="chart-finances"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráfica Rotación de Inventario / Prendas Menos Vendidas -->
+                    <div class="glass-panel rounded-3xl p-6 relative overflow-hidden glow-green flex flex-col">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-1.5">
+                            <i data-lucide="trending-down" class="w-4.5 h-4.5 text-emerald-400"></i> Rotación de Prendas (Cantidades Vendidas)
+                        </h3>
+                        <div class="w-full h-[280px] flex items-center justify-center">
+                            <canvas id="chart-products"></canvas>
+                        </div>
+                        <span class="text-[10px] text-slate-500 mt-2 block">Muestra el volumen de ventas por prenda. Permite detectar qué modelos se han vendido menos.</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Pie de Página -->
+    <footer class="mt-auto border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
+        <p>&copy; 2026 StitchControl. Diseñado para control administrativo de ropa por encargo.</p>
+    </footer>
+
+    <!-- MODAL DE CONFIGURACIÓN DE SUPABASE -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200">
+            <button id="btn-close-settings" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-2 bg-brand-500/20 rounded-xl text-brand-400">
+                    <i data-lucide="database" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold font-outfit">Configuración de Conexión</h3>
+                    <p class="text-xs text-slate-400">Ingresa los datos de conexión de tu proyecto Supabase</p>
+                </div>
+            </div>
+
+            <form id="form-settings" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="settings-url">SUPABASE_URL</label>
+                    <input type="url" id="settings-url" required placeholder="https://xxxxxx.supabase.co" 
+                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="settings-key">SUPABASE_ANON_KEY</label>
+                    <input type="password" id="settings-key" required placeholder="eyJhbGciOi..." 
+                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                </div>
+                
+                <div class="pt-4 flex items-center justify-end gap-3">
+                    <button type="button" id="btn-clear-settings" class="px-4 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-900/50 rounded-xl transition-all">
+                        Limpiar Datos
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md">
+                        Guardar Conexión
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE DE ABONOS (Ver historial de abonos de una venta) -->
+    <div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200">
+            <button id="btn-close-history" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-2 bg-brand-500/20 rounded-xl text-brand-400">
+                    <i data-lucide="scroll" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold font-outfit" id="history-client-title">Historial de Abonos</h3>
+                    <p class="text-xs text-slate-400" id="history-product-title">Cargando...</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-96 pr-2">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400">
+                            <th class="py-2.5 px-4">Fecha</th>
+                            <th class="py-2.5 px-4 text-right">Abono ($)</th>
+                            <th class="py-2.5 px-4 text-right">Tasa BCV</th>
+                            <th class="py-2.5 px-4 text-right">Monto Bs.</th>
+                            <th class="py-2.5 px-4">Método</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body" class="divide-y divide-slate-900 text-xs text-slate-300">
+                        <tr>
+                            <td colspan="5" class="py-8 text-center text-slate-500">Cargando pagos registrados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pt-4 mt-4 border-t border-slate-900 flex justify-between items-center text-xs">
+                <div class="text-slate-400">
+                    Total Recaudado: <span class="font-bold text-emerald-400" id="history-total-usd">$0.00</span>
+                </div>
+                <button type="button" id="btn-close-history-footer" class="px-5 py-2 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts de la aplicación -->
+    <script src="supabaseClient.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

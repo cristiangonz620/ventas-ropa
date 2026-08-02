@@ -330,7 +330,7 @@
                             <h3 class="text-xs font-semibold uppercase tracking-wider text-brand-400 mb-4 flex items-center gap-1.5">
                                 <i data-lucide="user" class="w-3.5 h-3.5"></i> Información del Cliente
                             </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-xs font-medium text-slate-400 mb-1.5" for="cliente-nombre">Nombre Completo</label>
                                     <input type="text" id="cliente-nombre" required placeholder="Ej. María Pérez" 
@@ -339,6 +339,11 @@
                                 <div>
                                     <label class="block text-xs font-medium text-slate-400 mb-1.5" for="cliente-telefono">Teléfono de Contacto</label>
                                     <input type="tel" id="cliente-telefono" placeholder="Ej. 0412-5556677" 
+                                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-400 mb-1.5" for="venta-fecha">Fecha del Pedido</label>
+                                    <input type="date" id="venta-fecha" required
                                         class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
                                 </div>
                             </div>

@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formEncargo: document.getElementById('form-encargo'),
         clienteNombre: document.getElementById('cliente-nombre'),
         clienteTelefono: document.getElementById('cliente-telefono'),
+        ventaFecha: document.getElementById('venta-fecha'),
         prendaDescripcion: document.getElementById('prenda-descripcion'),
         prendaImagenUrl: document.getElementById('prenda-imagen-url'),
         prendaPreview: document.getElementById('prenda-preview'),
@@ -165,6 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         el.abonoFecha.value = now.toISOString().slice(0, 16);
+
+        // Establecer fecha por defecto en formulario de nuevo encargo (hoy local)
+        el.ventaFecha.value = now.toISOString().split('T')[0];
         
         // Establecer fechas por defecto en Reportes (los últimos 30 días)
         const today = new Date();
@@ -433,6 +437,26 @@ document.addEventListener('DOMContentLoaded', () => {
         date: (dateStr) => {
             const date = new Date(dateStr);
             return date.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        },
+        dateOnly: (dateStr) => {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        },
+        daysElapsed: (dateStr) => {
+            if (!dateStr) return "";
+            const created = new Date(dateStr);
+            const now = new Date();
+            created.setHours(0,0,0,0);
+            now.setHours(0,0,0,0);
+            const diffTime = now - created;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays <= 0) return "Hoy";
+            if (diffDays === 1) return "Ayer";
+            return `Hace ${diffDays} días`;
         }
     };
 
@@ -859,9 +883,15 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.className = "hover:bg-slate-900/35 transition-colors border-b border-slate-900";
             tr.innerHTML = `
                 <td class="py-4 px-6">
-                    <div class="font-semibold text-white">${client.nombre}</div>
-                    <div class="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                        <i data-lucide="phone" class="w-3 h-3"></i> ${client.telefono || 'Sin teléfono'}
+                    <div class="font-bold text-slate-100 font-outfit text-sm">${client.nombre}</div>
+                    ${client.telefono ? `
+                        <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${client.telefono}
+                        </div>
+                    ` : ''}
+                    <div class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
+                        <i data-lucide="calendar" class="w-3 h-3 text-slate-500"></i> 
+                        <span>${fmt.dateOnly(sale.fecha_venta)} (${fmt.daysElapsed(sale.fecha_venta)})</span>
                     </div>
                 </td>
                 <td class="py-4 px-6 max-w-xs">
@@ -1232,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearFullOrder() {
         state.tempOrderItems = [];
         el.formEncargo.reset();
+        el.ventaFecha.value = new Date().toISOString().split('T')[0];
         el.prendaPreview.src = "";
         el.prendaPreview.classList.add('hidden');
         el.prendaPreviewPlaceholder.classList.remove('hidden');
@@ -1251,6 +1282,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const clientName = el.clienteNombre.value.trim();
         const clientPhone = el.clienteTelefono.value.trim();
+        const orderDateVal = el.ventaFecha.value;
+        const orderDate = orderDateVal ? new Date(orderDateVal).toISOString() : new Date().toISOString();
 
         if (!clientName) {
             showToast("Validación", "Por favor ingresa el nombre del cliente.", "warning");
@@ -1322,7 +1355,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     cliente_id: clientId,
                     monto_total_usd: totalPrice,
                     saldo_pendiente_usd: totalPrice,
-                    estado_pago: 'pendiente'
+                    estado_pago: 'pendiente',
+                    creado_en: orderDate
                 }])
                 .select('id')
                 .single();
@@ -1349,6 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reiniciar variables de estado y UI
             state.tempOrderItems = [];
             el.formEncargo.reset();
+            el.ventaFecha.value = new Date().toISOString().split('T')[0];
             el.prendaPreview.src = "";
             el.prendaPreview.classList.add('hidden');
             el.prendaPreviewPlaceholder.classList.remove('hidden');
@@ -1478,8 +1513,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ABRIR DETALLE DE PRENDAS DEL PEDIDO ---
     function openOrderDetails(ventaId, clientName, clientPhone, totalUsd, pendingUsd) {
+        const sale = state.sales.find(s => s.id === ventaId);
+        const saleDateText = sale ? `${fmt.dateOnly(sale.fecha_venta)} (${fmt.daysElapsed(sale.fecha_venta)})` : '';
+        
         el.detailsClientTitle.textContent = `Pedido de ${clientName}`;
-        el.detailsClientPhone.textContent = `Teléfono: ${clientPhone}`;
+        el.detailsClientPhone.textContent = `Teléfono: ${clientPhone} | Fecha: ${saleDateText}`;
         el.detailsTotalUsd.textContent = totalUsd;
         el.detailsPendingUsd.textContent = pendingUsd;
 

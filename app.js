@@ -657,6 +657,10 @@ document.addEventListener('DOMContentLoaded', () => {
         el.formAbono.addEventListener('submit', handleNewAbono);
         el.btnCancelAbono.addEventListener('click', () => {
             el.formAbono.reset();
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            el.abonoFecha.value = now.toISOString().slice(0, 16);
+
             el.abonoVentaSelect.value = "";
             // Resetear a moneda por defecto (Bs)
             el.btnCurrencyBs.click();
@@ -1518,6 +1522,10 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Abono Registrado", `Abono de ${state.abonoCurrency === 'Bs' ? fmt.bs(montoAbonoBs) : fmt.usd(montoAbonoUsdFinal)} registrado con éxito.`, "success");
             
             el.formAbono.reset();
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            el.abonoFecha.value = now.toISOString().slice(0, 16);
+
             el.abonoVentaSelect.value = "";
             el.btnCurrencyBs.click(); // Resetear a moneda por defecto
             handleAbonoSelectionChange();

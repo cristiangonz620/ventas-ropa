@@ -1553,7 +1553,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.orderDetailsModal.classList.remove('hidden');
 
         // Buscar la venta en el estado local para obtener las prendas asociadas
-        const sale = state.sales.find(s => s.id === ventaId);
         if (!sale) {
             container.innerHTML = `<div class="py-8 text-center text-rose-400">No se encontró la información del pedido.</div>`;
             return;

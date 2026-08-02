@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTab: 'dashboard',
         selectedSaleForAbono: null,
         abonoCurrency: 'Bs', // 'Bs' o 'USD' (Bs por defecto)
+        tempOrderItems: [], // Lista temporal de prendas para el nuevo pedido
         charts: {
             finances: null,
             products: null
@@ -58,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
         addItemCost: document.getElementById('add-item-cost'),
         addItemPrice: document.getElementById('add-item-price'),
         addItemImg: document.getElementById('add-item-img'),
+
+        // Lote de Prendas (Nuevo Encargo)
+        btnAddToTempList: document.getElementById('btn-add-to-temp-list'),
+        tempItemsSection: document.getElementById('temp-items-section'),
+        tempItemsBody: document.getElementById('temp-items-body'),
+        tempTotalCost: document.getElementById('temp-total-cost'),
+        tempTotalPrice: document.getElementById('temp-total-price'),
+        btnClearFullOrder: document.getElementById('btn-clear-full-order'),
+        btnSubmitFullOrder: document.getElementById('btn-submit-full-order'),
 
         // Login
         loginOverlay: document.getElementById('login-overlay'),
@@ -648,6 +658,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Registrar Agregar Prenda submit
         el.formAddItem.addEventListener('submit', handleAddItemSubmit);
+
+        // Agregar prenda a la lista de nuevo encargo
+        el.btnAddToTempList.addEventListener('click', addGarmentToTempList);
+        
+        // Limpiar orden completa
+        el.btnClearFullOrder.addEventListener('click', clearFullOrder);
     }
 
     // --- CAMBIAR PESTAÑA ---
@@ -1085,6 +1101,111 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- MANEJO DE PRENDAS TEMPORALES EN NUEVO ENCARGO ---
+    function addGarmentToTempList() {
+        const desc = el.prendaDescripcion.value.trim();
+        const costUsd = parseFloat(el.precioCosto.value) || 0;
+        const priceUsd = parseFloat(el.precioVenta.value) || 0;
+        const imgUrl = el.prendaImagenUrl.value.trim() || null;
+
+        if (!desc) {
+            showToast("Validación", "Por favor ingresa la descripción de la prenda.", "warning");
+            el.prendaDescripcion.focus();
+            return;
+        }
+
+        if (priceUsd <= 0 || costUsd < 0) {
+            showToast("Validación", "Por favor ingresa montos válidos para los precios.", "warning");
+            return;
+        }
+
+        // Agregar prenda a la lista temporal
+        state.tempOrderItems.push({
+            descripcion: desc,
+            precio_costo_usd: costUsd,
+            precio_venta_usd: priceUsd,
+            estado: 'encargado',
+            imagen_url: imgUrl
+        });
+
+        // Limpiar inputs de la prenda
+        el.prendaDescripcion.value = "";
+        el.precioCosto.value = "";
+        el.precioVenta.value = "";
+        el.prendaImagenUrl.value = "";
+        el.prendaPreview.src = "";
+        el.prendaPreview.classList.add('hidden');
+        el.prendaPreviewPlaceholder.classList.remove('hidden');
+        
+        // Ocultar indicador de ganancia individual
+        document.getElementById('encargo-profit-container').classList.add('hidden');
+
+        // Renderizar lista temporal
+        renderTempItems();
+        showToast("Prenda Añadida", `"${desc}" se agregó a la lista del pedido.`, "info");
+    }
+
+    function renderTempItems() {
+        const tbody = el.tempItemsBody;
+        tbody.innerHTML = "";
+
+        if (state.tempOrderItems.length === 0) {
+            el.tempItemsSection.classList.add('hidden');
+            return;
+        }
+
+        el.tempItemsSection.classList.remove('hidden');
+
+        let totalCost = 0;
+        let totalPrice = 0;
+
+        state.tempOrderItems.forEach((item, index) => {
+            totalCost += item.precio_costo_usd;
+            totalPrice += item.precio_venta_usd;
+
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-slate-900/40 text-xs";
+            tr.innerHTML = `
+                <td class="py-2 px-4 text-slate-200 font-medium truncate max-w-[200px]">${item.descripcion}</td>
+                <td class="py-2 px-4 text-right text-slate-400">${fmt.usd(item.precio_costo_usd)}</td>
+                <td class="py-2 px-4 text-right text-emerald-400 font-semibold">${fmt.usd(item.precio_venta_usd)}</td>
+                <td class="py-2 px-4 text-center">
+                    <button type="button" class="btn-remove-temp p-1 hover:text-rose-400 transition-colors" data-index="${index}">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </td>
+            `;
+
+            tr.querySelector('.btn-remove-temp').addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.dataset.index);
+                removeTempItem(idx);
+            });
+
+            tbody.appendChild(tr);
+        });
+
+        el.tempTotalCost.textContent = fmt.usd(totalCost);
+        el.tempTotalPrice.textContent = fmt.usd(totalPrice);
+        
+        lucide.createIcons();
+    }
+
+    function removeTempItem(index) {
+        state.tempOrderItems.splice(index, 1);
+        renderTempItems();
+    }
+
+    function clearFullOrder() {
+        state.tempOrderItems = [];
+        el.formEncargo.reset();
+        el.prendaPreview.src = "";
+        el.prendaPreview.classList.add('hidden');
+        el.prendaPreviewPlaceholder.classList.remove('hidden');
+        document.getElementById('encargo-profit-container').classList.add('hidden');
+        renderTempItems();
+        showToast("Formulario Limpiado", "Se reiniciaron todos los campos.", "info");
+    }
+
     // --- GUARDAR NUEVO ENCARGO (CLIENTE, PRODUCTO, VENTA) ---
     async function handleNewOrder(e) {
         e.preventDefault();
@@ -1096,13 +1217,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const clientName = el.clienteNombre.value.trim();
         const clientPhone = el.clienteTelefono.value.trim();
-        const productDesc = el.prendaDescripcion.value.trim();
-        const productImgUrl = el.prendaImagenUrl.value.trim() || null;
-        const costUsd = parseFloat(el.precioCosto.value) || 0;
-        const priceUsd = parseFloat(el.precioVenta.value) || 0;
 
-        if (priceUsd <= 0 || costUsd < 0) {
-            showToast("Validación", "Los montos de dinero deben ser válidos.", "warning");
+        if (!clientName) {
+            showToast("Validación", "Por favor ingresa el nombre del cliente.", "warning");
+            el.clienteNombre.focus();
+            return;
+        }
+
+        // Si el usuario tenía una prenda escrita a medio llenar y la lista temporal está vacía,
+        // la agregamos de forma automática al presionar "Guardar Encargo Completo".
+        const currentDesc = el.prendaDescripcion.value.trim();
+        if (currentDesc) {
+            const costUsd = parseFloat(el.precioCosto.value) || 0;
+            const priceUsd = parseFloat(el.precioVenta.value) || 0;
+            const imgUrl = el.prendaImagenUrl.value.trim() || null;
+            if (priceUsd > 0) {
+                state.tempOrderItems.push({
+                    descripcion: currentDesc,
+                    precio_costo_usd: costUsd,
+                    precio_venta_usd: priceUsd,
+                    estado: 'encargado',
+                    imagen_url: imgUrl
+                });
+            }
+        }
+
+        // Validar que tengamos al menos una prenda agregada
+        if (state.tempOrderItems.length === 0) {
+            showToast("Validación", "Debes agregar al menos una prenda al pedido para poder guardarlo.", "warning");
             return;
         }
 
@@ -1135,13 +1277,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientId = newClient.id;
             }
 
-            // 2. Registrar la Venta primero (para obtener el id)
+            // Calcular totales de los items en el lote
+            const totalCost = state.tempOrderItems.reduce((acc, item) => acc + item.precio_costo_usd, 0);
+            const totalPrice = state.tempOrderItems.reduce((acc, item) => acc + item.precio_venta_usd, 0);
+
+            // 2. Registrar la Venta (monto acumulativo de todo el lote)
             const { data: newSale, error: insertSaleError } = await supabase
                 .from('ventas')
                 .insert([{
                     cliente_id: clientId,
-                    monto_total_usd: priceUsd,
-                    saldo_pendiente_usd: priceUsd,
+                    monto_total_usd: totalPrice,
+                    saldo_pendiente_usd: totalPrice,
                     estado_pago: 'pendiente'
                 }])
                 .select('id')
@@ -1150,27 +1296,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (insertSaleError) throw insertSaleError;
             const saleId = newSale.id;
 
-            // 3. Registrar el Producto asociado a la venta
-            const { error: insertProductError } = await supabase
+            // 3. Registrar todos los Productos del lote asociados a la venta
+            const { error: insertProductsError } = await supabase
                 .from('productos')
-                .insert([{
+                .insert(state.tempOrderItems.map(item => ({
                     venta_id: saleId,
-                    descripcion: productDesc,
-                    precio_costo_usd: costUsd,
-                    precio_venta_usd: priceUsd,
+                    descripcion: item.descripcion,
+                    precio_costo_usd: item.precio_costo_usd,
+                    precio_venta_usd: item.precio_venta_usd,
                     estado: 'encargado',
-                    imagen_url: productImgUrl
-                }]);
+                    imagen_url: item.imagen_url
+                })));
 
-            if (insertProductError) throw insertProductError;
+            if (insertProductsError) throw insertProductsError;
 
-            showToast("Encargo Guardado", `Se ha registrado el pedido de "${productDesc}" para ${clientName}.`, "success");
+            showToast("Encargo Guardado", `Se ha registrado el pedido con ${state.tempOrderItems.length} prendas para ${clientName}.`, "success");
             
-            // Reiniciar formulario y vista previa
+            // Reiniciar variables de estado y UI
+            state.tempOrderItems = [];
             el.formEncargo.reset();
             el.prendaPreview.src = "";
             el.prendaPreview.classList.add('hidden');
             el.prendaPreviewPlaceholder.classList.remove('hidden');
+            renderTempItems();
             
             await loadData();
             switchTab('dashboard');

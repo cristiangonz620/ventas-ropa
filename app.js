@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ` : ''}
                     <div class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
                         <i data-lucide="calendar" class="w-3 h-3 text-slate-500"></i> 
-                        <span>${fmt.dateOnly(sale.fecha_venta)} (${fmt.daysElapsed(sale.fecha_venta)})</span>
+                        <span>${fmt.dateOnly(sale.creado_en)} (${fmt.daysElapsed(sale.creado_en)})</span>
                     </div>
                 </td>
                 <td class="py-4 px-6 max-w-xs">
@@ -1561,7 +1561,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ABRIR DETALLE DE PRENDAS DEL PEDIDO ---
     function openOrderDetails(ventaId, clientName, clientPhone, totalUsd, pendingUsd) {
         const sale = state.sales.find(s => s.id === ventaId);
-        const saleDateText = sale ? `${fmt.dateOnly(sale.fecha_venta)} (${fmt.daysElapsed(sale.fecha_venta)})` : '';
+        const saleDateText = sale ? `${fmt.dateOnly(sale.creado_en)} (${fmt.daysElapsed(sale.creado_en)})` : '';
         
         el.detailsClientTitle.textContent = `Pedido de ${clientName}`;
         el.detailsClientPhone.textContent = `Teléfono: ${clientPhone} | Fecha: ${saleDateText}`;

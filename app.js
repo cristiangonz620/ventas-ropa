@@ -60,6 +60,18 @@ document.addEventListener('DOMContentLoaded', () => {
         addItemPrice: document.getElementById('add-item-price'),
         addItemImg: document.getElementById('add-item-img'),
 
+        // Editar Prenda Modal
+        editItemModal: document.getElementById('edit-item-modal'),
+        btnCloseEditItem: document.getElementById('btn-close-edit-item'),
+        btnCancelEditItem: document.getElementById('btn-cancel-edit-item'),
+        formEditItem: document.getElementById('form-edit-item'),
+        editItemProductId: document.getElementById('edit-item-product-id'),
+        editItemSaleId: document.getElementById('edit-item-sale-id'),
+        editItemDesc: document.getElementById('edit-item-desc'),
+        editItemCost: document.getElementById('edit-item-cost'),
+        editItemPrice: document.getElementById('edit-item-price'),
+        editItemImg: document.getElementById('edit-item-img'),
+
         // Lote de Prendas (Nuevo Encargo)
         btnAddToTempList: document.getElementById('btn-add-to-temp-list'),
         tempItemsSection: document.getElementById('temp-items-section'),
@@ -722,6 +734,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Registrar Agregar Prenda submit
         el.formAddItem.addEventListener('submit', handleAddItemSubmit);
+
+        // Editar Prenda listeners
+        el.btnCloseEditItem.addEventListener('click', () => el.editItemModal.classList.add('hidden'));
+        el.btnCancelEditItem.addEventListener('click', () => el.editItemModal.classList.add('hidden'));
+        el.formEditItem.addEventListener('submit', handleEditItemSubmit);
 
         // Agregar prenda a la lista de nuevo encargo
         el.btnAddToTempList.addEventListener('click', addGarmentToTempList);
@@ -1594,6 +1611,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="flex items-center gap-2.5 shrink-0">
+                    <!-- Botón Editar Prenda -->
+                    <button class="btn-edit-single p-1.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
+                        data-product-id="${item.id}"
+                        data-sale-id="${ventaId}"
+                        title="Editar detalles de la prenda">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                    </button>
+
                     ${item.estado === 'entregado' ? `
                         <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-950 text-slate-500 border border-slate-800/80">
                             Entregado
@@ -1609,6 +1634,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     `}
                 </div>
             `;
+
+            const btnEdit = card.querySelector('.btn-edit-single');
+            if (btnEdit) {
+                btnEdit.addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    openEditItemModal(btn.dataset.productId, btn.dataset.saleId);
+                });
+            }
 
             const btnDeliver = card.querySelector('.btn-deliver-single');
             if (btnDeliver) {
@@ -1648,6 +1681,119 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error("Error al entregar prenda:", err);
+            showToast("Error", err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    // --- RECALCULAR Y ACTUALIZAR TOTALES DE UNA VENTA ---
+    async function updateSaleTotals(saleId) {
+        const supabase = window.supabaseClient.supabase;
+        
+        // 1. Obtener todas las prendas de esa venta
+        const { data: products, error: prodError } = await supabase
+            .from('productos')
+            .select('precio_venta_usd')
+            .eq('venta_id', saleId);
+            
+        if (prodError) throw prodError;
+        
+        const newTotal = products.reduce((sum, p) => sum + parseFloat(p.precio_venta_usd), 0);
+        
+        // 2. Obtener todos los abonos de esa venta
+        const { data: abonos, error: abonosError } = await supabase
+            .from('abonos')
+            .select('monto_usd')
+            .eq('venta_id', saleId);
+            
+        if (abonosError) throw abonosError;
+        
+        const totalAbonado = abonos.reduce((sum, a) => sum + parseFloat(a.monto_usd), 0);
+        const newPending = Math.max(0, newTotal - totalAbonado);
+        
+        let newEstadoPago = 'pendiente';
+        if (newPending <= 0.009) {
+            newEstadoPago = 'completado';
+        } else if (newPending < newTotal - 0.009) {
+            newEstadoPago = 'parcial';
+        }
+        
+        // 3. Actualizar la venta en Supabase
+        const { error: updateError } = await supabase
+            .from('ventas')
+            .update({
+                monto_total_usd: newTotal,
+                saldo_pendiente_usd: newPending,
+                estado_pago: newEstadoPago
+            })
+            .eq('id', saleId);
+            
+        if (updateError) throw updateError;
+    }
+
+    // --- ABRIR MODAL EDITAR PRENDA ---
+    function openEditItemModal(productId, saleId) {
+        const sale = state.sales.find(s => s.id === saleId);
+        if (!sale) return;
+        const product = (sale.productos || []).find(p => p.id === productId);
+        if (!product) return;
+
+        el.editItemProductId.value = productId;
+        el.editItemSaleId.value = saleId;
+        el.editItemDesc.value = product.descripcion;
+        el.editItemCost.value = product.precio_costo_usd;
+        el.editItemPrice.value = product.precio_venta_usd;
+        el.editItemImg.value = product.imagen_url || "";
+
+        el.editItemModal.classList.remove('hidden');
+    }
+
+    // --- ACCIÓN GUARDAR CAMBIOS DE PRENDA ---
+    async function handleEditItemSubmit(e) {
+        e.preventDefault();
+        
+        if (!window.supabaseClient.isConfigured) return;
+
+        const productId = el.editItemProductId.value;
+        const saleId = el.editItemSaleId.value;
+        const desc = el.editItemDesc.value.trim();
+        const costUsd = parseFloat(el.editItemCost.value) || 0;
+        const priceUsd = parseFloat(el.editItemPrice.value) || 0;
+        const imgUrl = el.editItemImg.value.trim() || null;
+
+        if (!desc || priceUsd <= 0 || costUsd < 0) {
+            showToast("Validación", "Por favor ingresa detalles válidos.", "warning");
+            return;
+        }
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            // 1. Actualizar el producto en Supabase
+            const { error: updateProdError } = await supabase
+                .from('productos')
+                .update({
+                    descripcion: desc,
+                    precio_costo_usd: costUsd,
+                    precio_venta_usd: priceUsd,
+                    imagen_url: imgUrl
+                })
+                .eq('id', productId);
+
+            if (updateProdError) throw updateProdError;
+
+            // 2. Recalcular y actualizar totales de la venta
+            await updateSaleTotals(saleId);
+
+            showToast("Prenda Actualizada", `Se modificaron los datos de "${desc}" correctamente.`, "success");
+            el.editItemModal.classList.add('hidden');
+            el.orderDetailsModal.classList.add('hidden'); // Cerrar modal de detalles para forzar recarga visual
+
+            await loadData();
+        } catch (err) {
+            console.error("Error al editar prenda:", err);
             showToast("Error", err.message, "error");
         } finally {
             setLoader(false);

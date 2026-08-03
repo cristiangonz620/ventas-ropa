@@ -1,4 +1,4 @@
-# 🛍️ StitchControl - Sistema de Gestión de Ventas por Encargo y Abonos
+# 🛍️ Control - Sistema de Gestión de Ventas por Encargo y Abonos
 
 **StitchControl** es un sistema web ligero y responsivo diseñado para pequeños emprendimientos de comercio/ropa por encargo. Permite llevar el control de inventarios, costo de adquisición, precios de venta, clientes y un historial detallado de **abonos progresivos en divisas (USD)** con cálculo dinámico a **Bolívares (Bs.)** según la tasa oficial del Banco Central de Venezuela (BCV).
 

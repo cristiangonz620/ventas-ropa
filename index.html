@@ -621,29 +621,36 @@
                 </div>
 
                 <!-- Tarjetas KPI del Negocio -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <!-- KPI 1: Ventas y Costos -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <!-- KPI 1: Ventas del Periodo -->
                     <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
-                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ventas de Periodo</span>
+                        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ventas del Periodo</span>
                         <div class="text-base font-black text-white mt-1" id="kpi-ventas-totales">$0.00</div>
-                        <div class="text-[10px] text-slate-500 mt-1">Inversión Costo: <span id="kpi-inversion-total" class="font-semibold text-slate-400">$0.00</span></div>
+                        <div class="text-[10px] text-slate-500 mt-1">Facturación total</div>
+                    </div>
+
+                    <!-- KPI 2: Costo de Adquisición (Inversión) -->
+                    <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 border-l-4 border-l-amber-500/70">
+                        <span class="text-[10px] text-amber-400 block uppercase font-bold tracking-wider">Costo de Adquisición</span>
+                        <div class="text-base font-black text-amber-300 mt-1" id="kpi-inversion-total">$0.00</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Inversión total en ropa</div>
                     </div>
                     
-                    <!-- KPI 2: Ganancia Proyectada -->
+                    <!-- KPI 3: Ganancia Proyectada -->
                     <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
                         <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Ganancia Bruta</span>
                         <div class="text-base font-black text-emerald-400 mt-1" id="kpi-ganancia-total">$0.00</div>
                         <div class="text-[10px] text-slate-500 mt-1">Rentabilidad (Markup): <span id="kpi-rentabilidad-percent" class="font-semibold text-brand-400">0%</span></div>
                     </div>
 
-                    <!-- KPI 3: Punto de Equilibrio (Retorno de Inversión) -->
+                    <!-- KPI 4: Punto de Equilibrio (Retorno de Inversión) -->
                     <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
                         <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Retorno de Costos</span>
                         <div class="text-base font-black mt-1" id="kpi-retorno-percent">0%</div>
                         <div class="text-[10px] text-slate-500 mt-1">Costo Recobrado: <span id="kpi-abonos-total" class="font-semibold text-emerald-400">$0.00</span></div>
                     </div>
 
-                    <!-- KPI 4: Salud Financiera (Deuda y Cobro) -->
+                    <!-- KPI 5: Salud Financiera (Deuda y Cobro) -->
                     <div class="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-900/40">
                         <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Índice de Cobro</span>
                         <div class="text-base font-black mt-1 text-sky-400" id="kpi-cobro-percent">0%</div>

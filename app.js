@@ -1108,6 +1108,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i data-lucide="package-check" class="w-4 h-4"></i>
                             </button>
                         ` : ''}
+
+                        <!-- Botón Eliminar Pedido -->
+                        <button class="btn-delete-order p-1.5 bg-rose-950 border border-rose-900 hover:border-rose-500 hover:bg-rose-900/50 rounded-lg text-rose-400 hover:text-white transition-all" 
+                            data-sale-id="${sale.id}" 
+                            data-client-name="${client.nombre}"
+                            title="Eliminar pedido completo">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
                     </div>
                 </td>
             `;
@@ -1152,6 +1160,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (confirm(`¿Estás seguro de que deseas marcar como entregadas las prendas: "${desc}"?`)) {
                         handleMarkAsDelivered(saleId);
                     }
+                });
+            }
+
+            const btnDelete = tr.querySelector('.btn-delete-order');
+            if (btnDelete) {
+                btnDelete.addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    handleDeleteOrder(btn.dataset.saleId, btn.dataset.clientName);
                 });
             }
 
@@ -1238,6 +1254,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <i data-lucide="package-check" class="w-3.5 h-3.5"></i>
                                 </button>
                             ` : ''}
+                            <button class="btn-card-delete p-2 bg-rose-950 border border-rose-800 hover:border-rose-500 rounded-xl text-rose-400 text-xs flex items-center justify-center"
+                                title="Eliminar pedido completo">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1282,6 +1302,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
+                const mBtnDelete = card.querySelector('.btn-card-delete');
+                if (mBtnDelete) {
+                    mBtnDelete.addEventListener('click', () => {
+                        handleDeleteOrder(sale.id, client.nombre);
+                    });
+                }
+
                 mobileContainer.appendChild(card);
             }
         });
@@ -1309,6 +1336,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Error al entregar pedido:", err);
             showToast("Error de Operación", "No se pudo actualizar el estado de entrega: " + err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    // --- ACCIÓN ELIMINAR PEDIDO ---
+    async function handleDeleteOrder(saleId, clientName) {
+        if (!window.supabaseClient.isConfigured) return;
+
+        if (!confirm(`🚨 ¡ATENCIÓN! 🚨\n\n¿Estás absolutamente seguro de que deseas ELIMINAR por completo el pedido de ${clientName}?\n\nEsta acción borrará la venta, las prendas y los abonos asociados. NO se puede deshacer.`)) {
+            return;
+        }
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            const { error } = await supabase
+                .from('ventas')
+                .delete()
+                .eq('id', saleId);
+
+            if (error) throw error;
+
+            showToast("Pedido Eliminado", `El pedido de ${clientName} ha sido eliminado con éxito.`, "success");
+            await loadData();
+        } catch (err) {
+            console.error("Error al eliminar pedido:", err);
+            showToast("Error de Operación", "No se pudo eliminar el pedido: " + err.message, "error");
         } finally {
             setLoader(false);
         }

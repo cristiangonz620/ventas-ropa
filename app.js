@@ -598,7 +598,10 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const email = el.forgotEmail.value.trim();
             
-            if (!window.supabaseClient.isConfigured) return;
+            if (!window.supabaseClient.isConfigured) {
+                showToast("Error", "Supabase no está configurado en el sistema.", "error");
+                return;
+            }
 
             try {
                 setLoader(true);

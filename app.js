@@ -614,7 +614,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 setLoader(true);
-                const { error } = await window.supabaseClient.supabase.auth.resetPasswordForEmail(email);
+                const { error } = await window.supabaseClient.supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + window.location.pathname
+                });
                 if (error) throw error;
                 
                 showToast("Correo Enviado", "Revisa tu bandeja de entrada para restablecer la contraseña.", "success");

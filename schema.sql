@@ -112,7 +112,7 @@ DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en 
 DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en abonos" ON abonos;
 
 -- Crear políticas de acceso seguro (solo usuarios autenticados)
-CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en clientes" ON clientes FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en productos" ON productos FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en ventas" ON ventas FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en abonos" ON abonos FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en clientes" ON clientes FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en productos" ON productos FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en ventas" ON ventas FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en abonos" ON abonos FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);

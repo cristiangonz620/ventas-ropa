@@ -89,6 +89,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loginPassword: document.getElementById('login-password'),
         btnLogout: document.getElementById('btn-logout'),
 
+        // Recuperación de Contraseña
+        btnForgotPasswordLink: document.getElementById('btn-forgot-password-link'),
+        forgotPasswordModal: document.getElementById('forgot-password-modal'),
+        btnCloseForgot: document.getElementById('btn-close-forgot'),
+        btnCancelForgot: document.getElementById('btn-cancel-forgot'),
+        formForgotPassword: document.getElementById('form-forgot-password'),
+        forgotEmail: document.getElementById('forgot-email'),
+        
+        resetPasswordModal: document.getElementById('reset-password-modal'),
+        formResetPassword: document.getElementById('form-reset-password'),
+        resetPasswordNew: document.getElementById('reset-password-new'),
+
         historyModal: document.getElementById('history-modal'),
         btnCloseHistory: document.getElementById('btn-close-history'),
         btnCloseHistoryFooter: document.getElementById('btn-close-history-footer'),
@@ -118,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusFilter: document.getElementById('status-filter'),
         btnRefreshData: document.getElementById('btn-refresh-data'),
         salesTableBody: document.getElementById('sales-table-body'),
+        salesCardsMobile: document.getElementById('sales-cards-mobile'),
         
         // Formulario Encargos
         formEncargo: document.getElementById('form-encargo'),
@@ -247,6 +260,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Escuchar cambios en la sesión de Supabase
         supabase.auth.onAuthStateChange((event, session) => {
             console.log("Cambio de autenticación:", event, session);
+
+            if (event === 'PASSWORD_RECOVERY') {
+                // Mostrar modal de nueva contraseña
+                el.loginOverlay.classList.add('hidden');
+                el.resetPasswordModal.classList.remove('hidden');
+                return;
+            }
+
             if (session && session.user) {
                 // Usuario autenticado
                 el.loginOverlay.classList.add('hidden');
@@ -565,6 +586,63 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Abrir y cerrar modal de recuperar contraseña
+        el.btnForgotPasswordLink.addEventListener('click', () => {
+            el.forgotPasswordModal.classList.remove('hidden');
+        });
+        el.btnCloseForgot.addEventListener('click', () => el.forgotPasswordModal.classList.add('hidden'));
+        el.btnCancelForgot.addEventListener('click', () => el.forgotPasswordModal.classList.add('hidden'));
+
+        // Enviar enlace de recuperación
+        el.formForgotPassword.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = el.forgotEmail.value.trim();
+            
+            if (!window.supabaseClient.isConfigured) return;
+
+            try {
+                setLoader(true);
+                const { error } = await window.supabaseClient.supabase.auth.resetPasswordForEmail(email);
+                if (error) throw error;
+                
+                showToast("Correo Enviado", "Revisa tu bandeja de entrada para restablecer la contraseña.", "success");
+                el.forgotPasswordModal.classList.add('hidden');
+                el.formForgotPassword.reset();
+            } catch (err) {
+                console.error("Error al recuperar:", err);
+                showToast("Error", err.message || "No se pudo enviar el correo.", "error");
+            } finally {
+                setLoader(false);
+            }
+        });
+
+        // Establecer nueva contraseña
+        el.formResetPassword.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = el.resetPasswordNew.value;
+            
+            try {
+                setLoader(true);
+                const { error } = await window.supabaseClient.supabase.auth.updateUser({
+                    password: newPassword
+                });
+                
+                if (error) throw error;
+                
+                showToast("Contraseña Actualizada", "Tu nueva contraseña ha sido guardada con éxito.", "success");
+                el.resetPasswordModal.classList.add('hidden');
+                el.formResetPassword.reset();
+                
+                // Redirigir al inicio normal (el listener onAuthStateChange ya debería haber logueado al usuario)
+                loadData();
+            } catch (err) {
+                console.error("Error al actualizar contraseña:", err);
+                showToast("Error", err.message || "No se pudo actualizar la contraseña.", "error");
+            } finally {
+                setLoader(false);
+            }
+        });
+
         // Cerrar Sesión
         el.btnLogout.addEventListener('click', async () => {
             if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
@@ -853,8 +931,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = el.searchFilter.value.toLowerCase().trim();
         const status = el.statusFilter.value;
         const tbody = el.salesTableBody;
+        const mobileContainer = el.salesCardsMobile;
         
         tbody.innerHTML = "";
+        if (mobileContainer) mobileContainer.innerHTML = "";
 
         // Filtrar datos
         const filtered = state.sales.filter(sale => {
@@ -870,13 +950,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (filtered.length === 0) {
+            const emptyText = "No se encontraron registros que coincidan con la búsqueda.";
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="py-12 text-center text-slate-500">
-                        No se encontraron registros que coincidan con la búsqueda.
+                        ${emptyText}
                     </td>
                 </tr>
             `;
+            if (mobileContainer) {
+                mobileContainer.innerHTML = `
+                    <div class="py-12 text-center text-slate-500 glass-panel rounded-2xl p-6">
+                        ${emptyText}
+                    </div>
+                `;
+            }
             return;
         }
 
@@ -922,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 deliverText = "Pendiente (Por Entregar)";
             }
 
+            // 1. RENDERIZAR FILA PARA TABLA DESKTOP
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-900/35 transition-colors border-b border-slate-900";
             tr.innerHTML = `
@@ -1020,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
             `;
 
-            // Event handler para ver detalles
+            // Handlers para la tabla desktop
             const btnDetails = tr.querySelector('.btn-view-details');
             if (btnDetails) {
                 btnDetails.addEventListener('click', (e) => {
@@ -1029,13 +1118,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Event handler para ver historial
             tr.querySelector('.btn-view-history').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
                 openAbonosHistory(btn.dataset.saleId, btn.dataset.clientName, btn.dataset.productDesc, btn.dataset.totalUsd);
             });
 
-            // Event handler para agregar prenda
             const btnAddItem = tr.querySelector('.btn-add-item-direct');
             if (btnAddItem) {
                 btnAddItem.addEventListener('click', (e) => {
@@ -1044,7 +1131,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Event handler para abonar directo
             const btnAbono = tr.querySelector('.btn-abono-direct');
             if (btnAbono) {
                 btnAbono.addEventListener('click', (e) => {
@@ -1055,7 +1141,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Event handler para marcar como entregado
             const btnDeliver = tr.querySelector('.btn-mark-delivered');
             if (btnDeliver) {
                 btnDeliver.addEventListener('click', (e) => {
@@ -1068,6 +1153,134 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             tbody.appendChild(tr);
+
+            // 2. RENDERIZAR TARJETA PARA DISPOSITIVOS MÓVILES (< md)
+            if (mobileContainer) {
+                const card = document.createElement('div');
+                card.className = "glass-panel rounded-2xl p-4 flex flex-col gap-3 shadow-lg border border-slate-800/80";
+                card.innerHTML = `
+                    <!-- Encabezado Cliente y Estado -->
+                    <div class="flex items-start justify-between gap-2 border-b border-slate-800/60 pb-3">
+                        <div>
+                            <div class="font-bold text-slate-100 font-outfit text-base">${client.nombre}</div>
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-1">
+                                ${client.telefono ? `<span class="flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${client.telefono}</span>` : ''}
+                                <span class="flex items-center gap-1 text-[11px] text-slate-500"><i data-lucide="calendar" class="w-3 h-3"></i> ${fmt.dateOnly(sale.creado_en)}</span>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold ${badgeClass} shrink-0">
+                            ${statusText}
+                        </span>
+                    </div>
+
+                    <!-- Detalles del Producto -->
+                    <div class="flex items-center gap-3">
+                        <img class="w-12 h-12 rounded-xl object-cover bg-slate-900 border border-slate-800 shrink-0" 
+                            src="${imgUrl}" 
+                            onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
+                            alt="Prenda">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-slate-200 font-medium text-xs leading-snug line-clamp-2">${combinedDescription}</div>
+                            <div class="mt-1">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${deliverBadgeClass}">
+                                    ${deliverText}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumen Financiero en Grid 2x2 -->
+                    <div class="grid grid-cols-2 gap-2 bg-slate-950/70 p-3 rounded-xl border border-slate-900 text-xs">
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-semibold">Total Venta</span>
+                            <span class="font-semibold text-slate-200">${fmt.usd(ventaTotal)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-semibold">Abonado</span>
+                            <span class="font-medium text-emerald-400">${fmt.usd(abonado)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-semibold">Resta ($)</span>
+                            <span class="font-bold text-rose-400">${fmt.usd(saldoPendiente)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-semibold">Resta (Bs.)</span>
+                            <span class="font-black text-amber-400">${fmt.bs(saldoBs)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción Móvil -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-900">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <button class="btn-card-details p-2 bg-slate-900 border border-slate-800 hover:border-violet-500/50 rounded-xl text-slate-300 hover:text-violet-400 text-xs font-medium flex items-center gap-1">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Detalle
+                            </button>
+                            <button class="btn-card-history p-2 bg-slate-900 border border-slate-800 hover:border-brand-500/50 rounded-xl text-slate-300 hover:text-brand-400 text-xs font-medium flex items-center gap-1">
+                                <i data-lucide="scroll" class="w-3.5 h-3.5"></i> Abonos
+                            </button>
+                            <button class="btn-card-add p-2 bg-brand-950/80 border border-brand-900 hover:border-brand-500 rounded-xl text-brand-300 text-xs font-medium flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Prenda
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center gap-1.5">
+                            ${saldoPendiente > 0 ? `
+                                <button class="btn-card-abono px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1 shadow-md shadow-emerald-900/30">
+                                    <i data-lucide="hand-coins" class="w-3.5 h-3.5"></i> Abonar
+                                </button>
+                            ` : ''}
+                            ${!allDelivered ? `
+                                <button class="btn-card-deliver p-2 bg-brand-950 border border-brand-800 hover:border-brand-500 rounded-xl text-brand-400 text-xs"
+                                    title="Marcar como entregado">
+                                    <i data-lucide="package-check" class="w-3.5 h-3.5"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Event handlers para los botones de la tarjeta móvil
+                const mBtnDetails = card.querySelector('.btn-card-details');
+                if (mBtnDetails) {
+                    mBtnDetails.addEventListener('click', () => {
+                        openOrderDetails(sale.id, client.nombre, client.telefono || 'Sin teléfono', fmt.usd(ventaTotal), fmt.usd(saldoPendiente));
+                    });
+                }
+
+                const mBtnHistory = card.querySelector('.btn-card-history');
+                if (mBtnHistory) {
+                    mBtnHistory.addEventListener('click', () => {
+                        openAbonosHistory(sale.id, client.nombre, combinedDescription, fmt.usd(abonado));
+                    });
+                }
+
+                const mBtnAdd = card.querySelector('.btn-card-add');
+                if (mBtnAdd) {
+                    mBtnAdd.addEventListener('click', () => {
+                        openAddItemModal(sale.id, client.nombre);
+                    });
+                }
+
+                const mBtnAbono = card.querySelector('.btn-card-abono');
+                if (mBtnAbono) {
+                    mBtnAbono.addEventListener('click', () => {
+                        switchTab('abonos');
+                        el.abonoVentaSelect.value = sale.id;
+                        handleAbonoSelectionChange();
+                    });
+                }
+
+                const mBtnDeliver = card.querySelector('.btn-card-deliver');
+                if (mBtnDeliver) {
+                    mBtnDeliver.addEventListener('click', () => {
+                        if (confirm(`¿Estás seguro de que deseas marcar como entregadas las prendas: "${combinedDescription}"?`)) {
+                            handleMarkAsDelivered(sale.id);
+                        }
+                    });
+                }
+
+                mobileContainer.appendChild(card);
+            }
         });
 
         lucide.createIcons();

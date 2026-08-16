@@ -59,6 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         addItemCost: document.getElementById('add-item-cost'),
         addItemPrice: document.getElementById('add-item-price'),
         addItemImg: document.getElementById('add-item-img'),
+        addItemProfitContainer: document.getElementById('add-item-profit-container'),
+        addItemProfitUsd: document.getElementById('add-item-profit-usd'),
+        addItemProfitPercent: document.getElementById('add-item-profit-percent'),
 
         // Editar Prenda Modal
         editItemModal: document.getElementById('edit-item-modal'),
@@ -71,6 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
         editItemCost: document.getElementById('edit-item-cost'),
         editItemPrice: document.getElementById('edit-item-price'),
         editItemImg: document.getElementById('edit-item-img'),
+        editItemProfitContainer: document.getElementById('edit-item-profit-container'),
+        editItemProfitUsd: document.getElementById('edit-item-profit-usd'),
+        editItemProfitPercent: document.getElementById('edit-item-profit-percent'),
 
         // Lote de Prendas (Nuevo Encargo)
         btnAddToTempList: document.getElementById('btn-add-to-temp-list'),
@@ -313,6 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addItemSaleId.value = saleId;
         el.addItemClientSubtitle.textContent = `Cliente: ${clientName}`;
         el.formAddItem.reset();
+        if (el.addItemProfitContainer) {
+            el.addItemProfitContainer.classList.add('hidden');
+        }
         el.addItemModal.classList.remove('hidden');
     }
 
@@ -809,7 +818,71 @@ document.addEventListener('DOMContentLoaded', () => {
         el.precioCosto.addEventListener('input', calculateProfit);
         el.precioVenta.addEventListener('input', calculateProfit);
 
-        // Cancelar / Cerrar Agregar Prenda
+        // Calcular ganancia en "Agregar Prenda al Pedido"
+        const calculateAddItemProfit = () => {
+            const costo = parseFloat(el.addItemCost.value) || 0;
+            const venta = parseFloat(el.addItemPrice.value) || 0;
+            
+            if (costo > 0 || venta > 0) {
+                el.addItemProfitContainer.classList.remove('hidden');
+                const ganancia = venta - costo;
+                
+                let porcentaje = 0;
+                if (costo > 0) {
+                    porcentaje = (ganancia / costo) * 100;
+                } else if (venta > 0) {
+                    porcentaje = 100;
+                }
+                
+                el.addItemProfitUsd.textContent = fmt.usd(ganancia);
+                el.addItemProfitPercent.textContent = `${porcentaje.toFixed(2)}%`;
+                
+                if (ganancia >= 0) {
+                    el.addItemProfitUsd.className = "text-sm font-bold text-emerald-400";
+                } else {
+                    el.addItemProfitUsd.className = "text-sm font-bold text-rose-400";
+                }
+            } else {
+                el.addItemProfitContainer.classList.add('hidden');
+            }
+        };
+
+        el.addItemCost.addEventListener('input', calculateAddItemProfit);
+        el.addItemPrice.addEventListener('input', calculateAddItemProfit);
+
+        // Calcular ganancia en "Editar Prenda"
+        const calculateEditItemProfit = () => {
+            const costo = parseFloat(el.editItemCost.value) || 0;
+            const venta = parseFloat(el.editItemPrice.value) || 0;
+            
+            if (costo > 0 || venta > 0) {
+                el.editItemProfitContainer.classList.remove('hidden');
+                const ganancia = venta - costo;
+                
+                let porcentaje = 0;
+                if (costo > 0) {
+                    porcentaje = (ganancia / costo) * 100;
+                } else if (venta > 0) {
+                    porcentaje = 100;
+                }
+                
+                el.editItemProfitUsd.textContent = fmt.usd(ganancia);
+                el.editItemProfitPercent.textContent = `${porcentaje.toFixed(2)}%`;
+                
+                if (ganancia >= 0) {
+                    el.editItemProfitUsd.className = "text-sm font-bold text-emerald-400";
+                } else {
+                    el.editItemProfitUsd.className = "text-sm font-bold text-rose-400";
+                }
+            } else {
+                el.editItemProfitContainer.classList.add('hidden');
+            }
+        };
+
+        el.editItemCost.addEventListener('input', calculateEditItemProfit);
+        el.editItemPrice.addEventListener('input', calculateEditItemProfit);
+
+        // Ocultar modales secundarios Agregar Prenda
         el.btnCloseAddItem.addEventListener('click', () => el.addItemModal.classList.add('hidden'));
         el.btnCancelAddItem.addEventListener('click', () => el.addItemModal.classList.add('hidden'));
         
@@ -2017,6 +2090,8 @@ document.addEventListener('DOMContentLoaded', () => {
         el.editItemCost.value = product.precio_costo_usd;
         el.editItemPrice.value = product.precio_venta_usd;
         el.editItemImg.value = product.imagen_url || "";
+
+        el.editItemCost.dispatchEvent(new Event('input'));
 
         el.editItemModal.classList.remove('hidden');
     }

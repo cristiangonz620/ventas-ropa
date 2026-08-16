@@ -802,6 +802,18 @@
                     </div>
                 </div>
 
+                <!-- Contenedor de Ganancia Calculada -->
+                <div id="add-item-profit-container" class="hidden p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Ganancia Neta</span>
+                        <span id="add-item-profit-usd" class="text-sm font-bold text-emerald-400">$0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Porcentaje</span>
+                        <span id="add-item-profit-percent" class="text-sm font-bold text-brand-400">0.00%</span>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="add-item-img">URL de la Imagen (Opcional)</label>
                     <input type="url" id="add-item-img" placeholder="https://ejemplo.com/imagen.jpg" 
@@ -858,6 +870,18 @@
                         <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="edit-item-price">Precio Venta ($ USD)</label>
                         <input type="number" id="edit-item-price" required step="0.01" min="0" placeholder="0.00" 
                             class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                </div>
+
+                <!-- Contenedor de Ganancia Calculada -->
+                <div id="edit-item-profit-container" class="hidden p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Ganancia Neta</span>
+                        <span id="edit-item-profit-usd" class="text-sm font-bold text-emerald-400">$0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">Porcentaje</span>
+                        <span id="edit-item-profit-percent" class="text-sm font-bold text-brand-400">0.00%</span>
                     </div>
                 </div>
 
@@ -1085,7 +1109,7 @@
     </div>
 
     <!-- Scripts de la aplicación -->
-    <script src="supabaseClient.js?v=4"></script>
-    <script src="app.js?v=4"></script>
+    <script src="supabaseClient.js?v=5"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>

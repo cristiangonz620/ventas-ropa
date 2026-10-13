@@ -1515,8 +1515,36 @@
         </div>
     </div>
 
+    <!-- MODAL DE CONFIRMACIÓN INTEGRADO (Reemplaza confirm() nativo del navegador) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[99998] flex items-center justify-center bg-slate-950/80 backdrop-blur-md px-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200 border border-slate-800 shadow-2xl">
+            <button id="btn-confirm-modal-close" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-900">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+            
+            <div class="flex items-start gap-3.5 mb-4 pr-6">
+                <div id="confirm-modal-icon-container" class="p-3 rounded-2xl bg-brand-500/20 text-brand-400 border border-brand-500/30 shrink-0">
+                    <i id="confirm-modal-icon" data-lucide="help-circle" class="w-6 h-6"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 id="confirm-modal-title" class="text-base font-bold font-outfit text-white">¿Confirmar Acción?</h3>
+                    <p id="confirm-modal-message" class="text-xs text-slate-300 mt-1.5 leading-relaxed whitespace-pre-line">¿Estás seguro de continuar?</p>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-900 flex items-center justify-end gap-3 shrink-0">
+                <button type="button" id="btn-confirm-modal-cancel" class="px-5 py-2.5 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all text-xs font-medium">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirm-modal-ok" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs transition-all shadow-lg flex items-center gap-2">
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts de la aplicación -->
-    <script src="supabaseClient.js?v=6"></script>
-    <script src="app.js?v=6"></script>
+    <script src="supabaseClient.js?v=7"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

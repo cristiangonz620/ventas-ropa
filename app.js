@@ -123,6 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsUrl: document.getElementById('settings-url'),
         settingsKey: document.getElementById('settings-key'),
 
+        // Modal Confirmación Custom
+        confirmModal: document.getElementById('confirm-modal'),
+        confirmModalTitle: document.getElementById('confirm-modal-title'),
+        confirmModalMessage: document.getElementById('confirm-modal-message'),
+        confirmModalIcon: document.getElementById('confirm-modal-icon'),
+        confirmModalIconContainer: document.getElementById('confirm-modal-icon-container'),
+        btnConfirmModalOk: document.getElementById('btn-confirm-modal-ok'),
+        btnConfirmModalCancel: document.getElementById('btn-confirm-modal-cancel'),
+        btnConfirmModalClose: document.getElementById('btn-confirm-modal-close'),
+
         // Agregar Prenda Modal
         addItemModal: document.getElementById('add-item-modal'),
         btnCloseAddItem: document.getElementById('btn-close-add-item'),
@@ -507,6 +517,85 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- MODAL DE CONFIRMACIÓN INTEGRADO (Sustituye window.confirm) ---
+    function showConfirmDialog({
+        title = '¿Confirmar Acción?',
+        message = '¿Estás seguro de continuar?',
+        confirmText = 'Aceptar',
+        cancelText = 'Cancelar',
+        type = 'primary', // 'danger' | 'warning' | 'success' | 'primary'
+        icon = null
+    } = {}) {
+        return new Promise((resolve) => {
+            const modal = el.confirmModal;
+            if (!modal) {
+                resolve(window.confirm(`${title}\n\n${message}`));
+                return;
+            }
+
+            el.confirmModalTitle.textContent = title;
+            el.confirmModalMessage.textContent = message;
+            el.btnConfirmModalOk.textContent = confirmText;
+            el.btnConfirmModalCancel.textContent = cancelText;
+
+            const iconContainer = el.confirmModalIconContainer;
+            const okBtn = el.btnConfirmModalOk;
+
+            // Reiniciar estilos de temas
+            iconContainer.className = "p-3 rounded-2xl shrink-0";
+            okBtn.className = "px-6 py-2.5 font-semibold rounded-xl text-xs transition-all shadow-lg flex items-center gap-2";
+
+            let iconName = icon;
+
+            if (type === 'danger') {
+                iconName = icon || 'trash-2';
+                iconContainer.classList.add('bg-rose-500/20', 'text-rose-400', 'border', 'border-rose-500/30');
+                okBtn.classList.add('bg-rose-600', 'hover:bg-rose-500', 'active:bg-rose-700', 'text-white', 'shadow-rose-900/40');
+            } else if (type === 'warning') {
+                iconName = icon || 'alert-triangle';
+                iconContainer.classList.add('bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/30');
+                okBtn.classList.add('bg-amber-600', 'hover:bg-amber-500', 'active:bg-amber-700', 'text-white', 'shadow-amber-900/40');
+            } else if (type === 'success') {
+                iconName = icon || 'check-circle-2';
+                iconContainer.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                okBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'active:bg-emerald-700', 'text-white', 'shadow-emerald-900/40');
+            } else {
+                iconName = icon || 'help-circle';
+                iconContainer.classList.add('bg-brand-500/20', 'text-brand-400', 'border', 'border-brand-500/30');
+                okBtn.classList.add('bg-brand-600', 'hover:bg-brand-500', 'active:bg-brand-700', 'text-white', 'shadow-brand-900/40');
+            }
+
+            el.confirmModalIcon.setAttribute('data-lucide', iconName);
+            lucide.createIcons();
+
+            let isResolved = false;
+
+            const cleanup = (result) => {
+                if (isResolved) return;
+                isResolved = true;
+                modal.classList.add('hidden');
+                document.removeEventListener('keydown', onKeyDown);
+                resolve(result);
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Escape') cleanup(false);
+                if (e.key === 'Enter') cleanup(true);
+            };
+
+            el.btnConfirmModalOk.onclick = () => cleanup(true);
+            el.btnConfirmModalCancel.onclick = () => cleanup(false);
+            if (el.btnConfirmModalClose) el.btnConfirmModalClose.onclick = () => cleanup(false);
+
+            modal.onclick = (e) => {
+                if (e.target === modal) cleanup(false);
+            };
+
+            document.addEventListener('keydown', onKeyDown);
+            modal.classList.remove('hidden');
+        });
+    }
+
     // --- LOADER Y TOASTS ---
     function setLoader(show) {
         if (show) {
@@ -766,8 +855,17 @@ document.addEventListener('DOMContentLoaded', () => {
         el.btnCloseSettings.addEventListener('click', () => el.settingsModal.classList.add('hidden'));
         
         // Limpiar configuración
-        el.btnClearSettings.addEventListener('click', () => {
-            if (confirm("¿Estás seguro de que deseas eliminar las credenciales de conexión?")) {
+        el.btnClearSettings.addEventListener('click', async () => {
+            const ok = await showConfirmDialog({
+                title: 'Eliminar Conexión Supabase',
+                message: '¿Estás seguro de que deseas eliminar las credenciales de conexión guardadas en este dispositivo?',
+                confirmText: 'Sí, Borrar Credenciales',
+                cancelText: 'Cancelar',
+                type: 'danger',
+                icon: 'trash-2'
+            });
+
+            if (ok) {
                 localStorage.removeItem('supabase_url');
                 localStorage.removeItem('supabase_anon_key');
                 location.reload();
@@ -918,7 +1016,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Cerrar Sesión
         el.btnLogout.addEventListener('click', async () => {
-            if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+            const ok = await showConfirmDialog({
+                title: 'Cerrar Sesión',
+                message: '¿Estás seguro de que deseas salir del sistema?',
+                confirmText: 'Cerrar Sesión',
+                cancelText: 'Permanecer',
+                type: 'warning',
+                icon: 'log-out'
+            });
+
+            if (ok) {
                 try {
                     setLoader(true);
                     clearAllToasts();
@@ -1800,9 +1907,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const corte = state.cortes.find(c => c.id === corteId);
         if (!corte) return;
 
-        if (!confirm(`¿Estás seguro de que deseas REABRIR el "${corte.nombre}"?\n\nAl reabrirlo, volverá a mostrarse como el corte activo en la vista principal.`)) {
-            return;
-        }
+        const ok = await showConfirmDialog({
+            title: `Reabrir ${corte.nombre}`,
+            message: `¿Estás seguro de que deseas REABRIR el "${corte.nombre}"?\n\nAl reabrirlo, volverá a mostrarse como el corte activo en la vista principal.`,
+            confirmText: 'Sí, Reabrir Corte',
+            cancelText: 'Cancelar',
+            type: 'warning',
+            icon: 'rotate-ccw'
+        });
+
+        if (!ok) return;
 
         setLoader(true);
         const supabase = window.supabaseClient.supabase;
@@ -2333,10 +2447,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const btnDeliver = tr.querySelector('.btn-mark-delivered');
             if (btnDeliver) {
-                btnDeliver.addEventListener('click', (e) => {
+                btnDeliver.addEventListener('click', async (e) => {
                     const saleId = e.currentTarget.dataset.saleId;
                     const desc = e.currentTarget.dataset.prenda;
-                    if (confirm(`¿Estás seguro de que deseas marcar como entregadas las prendas: "${desc}"?`)) {
+                    const ok = await showConfirmDialog({
+                        title: 'Marcar como Entregado',
+                        message: `¿Estás seguro de que deseas marcar como entregadas las prendas: "${desc}"?`,
+                        confirmText: 'Sí, Entregar',
+                        cancelText: 'Cancelar',
+                        type: 'success',
+                        icon: 'package-check'
+                    });
+                    if (ok) {
                         handleMarkAsDelivered(saleId);
                     }
                 });
@@ -2474,8 +2596,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const mBtnDeliver = card.querySelector('.btn-card-deliver');
                 if (mBtnDeliver) {
-                    mBtnDeliver.addEventListener('click', () => {
-                        if (confirm(`¿Estás seguro de que deseas marcar como entregadas las prendas: "${combinedDescription}"?`)) {
+                    mBtnDeliver.addEventListener('click', async () => {
+                        const ok = await showConfirmDialog({
+                            title: 'Marcar como Entregado',
+                            message: `¿Estás seguro de que deseas marcar como entregadas las prendas: "${combinedDescription}"?`,
+                            confirmText: 'Sí, Entregar',
+                            cancelText: 'Cancelar',
+                            type: 'success',
+                            icon: 'package-check'
+                        });
+                        if (ok) {
                             handleMarkAsDelivered(sale.id);
                         }
                     });
@@ -2524,9 +2654,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDeleteOrder(saleId, clientName) {
         if (!window.supabaseClient.isConfigured) return;
 
-        if (!confirm(`🚨 ¡ATENCIÓN! 🚨\n\n¿Estás absolutamente seguro de que deseas ELIMINAR por completo el pedido de ${clientName}?\n\nEsta acción borrará la venta, las prendas y los abonos asociados. NO se puede deshacer.`)) {
-            return;
-        }
+        const ok = await showConfirmDialog({
+            title: `Eliminar Pedido de ${clientName}`,
+            message: `¿Estás absolutamente seguro de que deseas ELIMINAR por completo el pedido de ${clientName}?\n\nEsta acción borrará la venta, las prendas y los abonos asociados. NO se puede deshacer.`,
+            confirmText: 'Sí, Eliminar Pedido',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'trash-2'
+        });
+
+        if (!ok) return;
 
         setLoader(true);
         const supabase = window.supabaseClient.supabase;
@@ -3129,9 +3266,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnDeliver) {
                 btnDeliver.addEventListener('click', async (e) => {
                     const btn = e.currentTarget;
-                    if (confirm(`¿Marcar "${btn.dataset.prendaDesc}" como entregado?`)) {
+                    const ok = await showConfirmDialog({
+                        title: 'Entregar Prenda',
+                        message: `¿Marcar "${btn.dataset.prendaDesc}" como entregada?`,
+                        confirmText: 'Sí, Entregar',
+                        cancelText: 'Cancelar',
+                        type: 'success',
+                        icon: 'package-check'
+                    });
+                    if (ok) {
                         await handleMarkSingleAsDelivered(btn.dataset.productId, btn.dataset.prendaDesc);
-                        // Cerrar modal
                         el.orderDetailsModal.classList.add('hidden');
                     }
                 });

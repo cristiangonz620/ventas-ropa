@@ -117,8 +117,8 @@
 </head>
 <body class="h-full flex flex-col font-sans overflow-x-hidden">
 
-    <!-- Notificaciones flotantes -->
-    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
+    <!-- Notificaciones flotantes (z-[99999] para que siempre aparezcan sobre el login y cualquier modal) -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[99999] flex flex-col gap-3 max-w-md w-full pointer-events-none"></div>
 
     <!-- Barra de navegación superior -->
     <header class="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
@@ -253,7 +253,7 @@
         <div class="flex border-b border-slate-900 overflow-x-auto no-scrollbar whitespace-nowrap">
             <button id="tab-dashboard" class="px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-brand-500 text-brand-400 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0">
                 <i data-lucide="layout-grid" class="w-4 h-4"></i>
-                Resumen General & Pedidos
+                <span id="tab-dashboard-text">Corte Activo & Pedidos</span>
             </button>
             <button id="tab-encargo" class="px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0">
                 <i data-lucide="user-plus" class="w-4 h-4"></i>
@@ -262,6 +262,10 @@
             <button id="tab-abonos" class="px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0">
                 <i data-lucide="receipt" class="w-4 h-4"></i>
                 Registrar Abono
+            </button>
+            <button id="tab-cortes" class="px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0">
+                <i data-lucide="archive" class="w-4 h-4"></i>
+                Historial de Cortes
             </button>
             <button id="tab-reportes" class="px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0">
                 <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
@@ -272,17 +276,78 @@
         <!-- Secciones de Contenido -->
         <div class="flex-1 flex flex-col">
 
-            <!-- PESTAÑA 1: TABLA RESUMEN -->
+            <!-- PESTAÑA 1: TABLA RESUMEN / CORTE ACTIVO -->
             <div id="content-dashboard" class="flex flex-col gap-4 sm:gap-6">
+                <!-- Banner de Estado de Corte -->
+                <div id="corte-status-container">
+                    <!-- Banner cuando hay Corte Activo -->
+                    <div id="active-corte-banner" class="hidden glass-panel rounded-2xl p-4 sm:p-5 border border-brand-500/30 bg-gradient-to-r from-brand-950/40 via-slate-900/60 to-slate-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex items-start sm:items-center gap-3.5">
+                            <div class="p-3 bg-brand-500/20 text-brand-400 rounded-xl border border-brand-500/30 shrink-0">
+                                <i data-lucide="scissors" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        Corte Activo
+                                    </span>
+                                    <span id="corte-active-date-badge" class="text-xs text-slate-400 flex items-center gap-1">
+                                        <i data-lucide="calendar" class="w-3 h-3 text-slate-500"></i> Desde: -
+                                    </span>
+                                </div>
+                                <h3 id="corte-active-title" class="text-base sm:text-xl font-bold font-outfit text-white mt-1">Corte Actual</h3>
+                                <p id="corte-active-desc" class="text-xs text-slate-400 line-clamp-1">Compras y ventas del ciclo actual</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 self-stretch sm:self-end md:self-auto flex-wrap">
+                            <button id="btn-open-close-corte" class="flex-1 sm:flex-initial px-4 py-2 bg-rose-950/80 hover:bg-rose-900/80 border border-rose-800/80 text-rose-300 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md hover:scale-[1.01] active:scale-[0.99]">
+                                <i data-lucide="archive" class="w-3.5 h-3.5"></i> Cerrar Este Corte
+                            </button>
+                            <button id="btn-open-new-corte-dashboard" class="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo Corte
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Banner cuando NO hay Corte Activo -->
+                    <div id="no-active-corte-banner" class="glass-panel rounded-2xl p-4 sm:p-5 border border-dashed border-amber-600/40 bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-start sm:items-center gap-3.5">
+                            <div class="p-3 bg-amber-500/20 text-amber-400 rounded-xl shrink-0">
+                                <i data-lucide="calendar-plus" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm sm:text-base font-outfit">No hay ningún corte activo en este momento</h4>
+                                <p class="text-xs text-slate-400 mt-0.5">Inicia un nuevo corte para comenzar a registrar las prendas, compras y pedidos de tu próximo ciclo de venta.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 self-stretch sm:self-auto flex-wrap">
+                            <button id="btn-start-first-corte" class="flex-1 sm:flex-initial px-4 py-2.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-brand-600/25 transition-all hover:scale-[1.01]">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Iniciar Nuevo Corte
+                            </button>
+                            <button id="btn-goto-cortes-history" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all">
+                                <i data-lucide="history" class="w-3.5 h-3.5"></i> Ver Historial
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 class="text-base sm:text-lg font-bold font-outfit">Control de Pedidos y Cuentas</h2>
-                        <p class="text-xs text-slate-400">Listado general de encargos, estados de cobro y equivalentes en moneda local</p>
+                        <h2 class="text-base sm:text-lg font-bold font-outfit" id="dashboard-table-title">Pedidos del Corte Activo</h2>
+                        <p class="text-xs text-slate-400" id="dashboard-table-subtitle">Listado de encargos de este bloque de venta, estados de cobro y entregas</p>
                     </div>
                     
                     <!-- Filtros -->
                     <div class="flex flex-wrap items-center gap-2.5 self-stretch md:self-auto">
-                        <div class="relative flex-1 min-w-[180px] md:w-64">
+                        <!-- Selector de Alcance (Corte Activo / Histórico / Archivados) -->
+                        <select id="corte-scope-filter" class="px-3 py-2 rounded-xl text-xs sm:text-sm bg-slate-900/60 border border-brand-500/40 text-brand-300 focus:border-brand-500 focus:outline-none font-medium">
+                            <option value="active" selected>🎯 Corte Activo</option>
+                            <option value="all">📚 Todos los Pedidos (Histórico)</option>
+                            <option value="archived">📦 Ventas Previas (Sin Corte)</option>
+                        </select>
+
+                        <div class="relative flex-1 min-w-[160px] md:w-56">
                             <span class="absolute left-3 top-2.5 text-slate-500">
                                 <i data-lucide="search" class="w-4 h-4"></i>
                             </span>
@@ -713,6 +778,92 @@
                 </div>
             </div>
 
+            <!-- PESTAÑA 5: HISTORIAL DE CORTES -->
+            <div id="content-cortes" class="hidden flex flex-col gap-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <div class="p-2 bg-brand-500/20 text-brand-400 rounded-xl">
+                                <i data-lucide="archive" class="w-5 h-5"></i>
+                            </div>
+                            <h2 class="text-lg font-bold font-outfit text-white">Historial de Cortes de Venta</h2>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Bloques de compra y venta cerrados, resumen financiero de cada ciclo y consulta detallada</p>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 flex-wrap self-stretch sm:self-auto">
+                        <button id="btn-toggle-unassigned-sales" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all">
+                            <i data-lucide="folder-clock" class="w-3.5 h-3.5 text-amber-400"></i> Ventas Previas (Sin Corte)
+                        </button>
+                        <button id="btn-new-corte-history-tab" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-brand-600/20 transition-all hover:scale-[1.01]">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Iniciar Nuevo Corte
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Buscador de Cortes -->
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-2.5 text-slate-500">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input id="search-cortes-input" type="text" placeholder="Buscar corte por nombre o fecha..." 
+                            class="w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm bg-slate-900/60 border border-slate-800 focus:border-brand-500 focus:outline-none text-slate-200">
+                    </div>
+                    <span id="cortes-count-badge" class="text-xs text-slate-400 font-medium">0 cortes registrados</span>
+                </div>
+
+                <!-- Contenedor de Tarjetas de Cortes -->
+                <div id="cortes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Dinámico -->
+                    <div class="col-span-full py-12 text-center text-slate-500 glass-panel rounded-2xl p-6">
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Cargando historial de cortes...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN DESPLEGABLE: VENTAS ARCHIVADAS PREVIAS (Sin Corte Asignado) -->
+                <div id="unassigned-sales-section" class="hidden glass-panel rounded-2xl p-5 border border-amber-900/40 bg-slate-950/70 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-900 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
+                                <i data-lucide="folder-archive" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white font-outfit">Ventas y Pedidos Previos (Sin Corte Asignado)</h3>
+                                <p class="text-xs text-slate-400">Pedidos registrados en el sistema antes de iniciar la gestión por cortes</p>
+                            </div>
+                        </div>
+                        <button id="btn-close-unassigned-sales" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60 uppercase text-[10px]">
+                                    <th class="py-3 px-4">Cliente</th>
+                                    <th class="py-3 px-4">Prendas</th>
+                                    <th class="py-3 px-4 text-right">Venta ($)</th>
+                                    <th class="py-3 px-4 text-right">Abonado ($)</th>
+                                    <th class="py-3 px-4 text-right">Pendiente ($)</th>
+                                    <th class="py-3 px-4 text-center">Estado</th>
+                                    <th class="py-3 px-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="unassigned-sales-table-body" class="divide-y divide-slate-900 text-slate-300">
+                                <tr>
+                                    <td colspan="7" class="py-6 text-center text-slate-500">No hay ventas archivadas sin corte.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
     </main>
@@ -984,6 +1135,256 @@
         </div>
     </div>
 
+    <!-- MODAL NUEVO CORTE -->
+    <div id="new-corte-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-xl rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <button id="btn-close-new-corte" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 mb-5 shrink-0">
+                <div class="p-2.5 bg-brand-500/20 rounded-xl text-brand-400 border border-brand-500/30">
+                    <i data-lucide="scissors" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold font-outfit text-white">Iniciar Nuevo Corte de Venta</h3>
+                    <p class="text-xs text-slate-400">Abre un nuevo ciclo de compras para registrar pedidos y cobros</p>
+                </div>
+            </div>
+
+            <form id="form-new-corte" class="space-y-4 overflow-y-auto pr-1 flex-1">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="new-corte-name">Nombre del Corte</label>
+                    <input type="text" id="new-corte-name" required placeholder="Ej. Corte 1 - Octubre 2026" 
+                        class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="new-corte-date">Fecha de Inicio</label>
+                        <input type="date" id="new-corte-date" required
+                            class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider" for="new-corte-desc">Descripción / Nota (Opcional)</label>
+                        <input type="text" id="new-corte-desc" placeholder="Ej. Viaje de compra ropa navideña" 
+                            class="w-full px-4 py-2.5 rounded-xl text-sm glass-input text-slate-100">
+                    </div>
+                </div>
+
+                <!-- Sección: Traspaso de Cuentas Pendientes -->
+                <div id="new-corte-pending-section" class="hidden rounded-2xl bg-slate-900/60 border border-slate-800 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-xs font-bold text-amber-400">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>Traspaso de Cuentas Pendientes</span>
+                        </div>
+                        <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                            <input type="checkbox" id="check-select-all-pending" checked class="rounded border-slate-700 text-brand-600 focus:ring-0">
+                            <span>Seleccionar Todas</span>
+                        </label>
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                        Las cuentas marcadas se transferirán a este nuevo corte para que continúes cobrándolas y registrando sus abonos aquí:
+                    </p>
+                    <div id="new-corte-pending-list" class="max-h-48 overflow-y-auto space-y-2 pr-1">
+                        <!-- Dinámico con checkboxes -->
+                    </div>
+                </div>
+
+                <div class="pt-3 flex items-center justify-end gap-3 shrink-0">
+                    <button type="button" id="btn-cancel-new-corte" class="px-5 py-2.5 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all text-xs">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 text-white font-semibold rounded-xl text-xs transition-all shadow-lg shadow-brand-600/25 flex items-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        Iniciar Corte
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CERRAR CORTE -->
+    <div id="close-corte-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-xl rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <button id="btn-close-close-corte" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center gap-3 mb-4 shrink-0">
+                <div class="p-2.5 bg-rose-500/20 rounded-xl text-rose-400 border border-rose-500/30">
+                    <i data-lucide="archive" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold font-outfit text-white" id="close-corte-title">Cerrar Corte</h3>
+                    <p class="text-xs text-slate-400">Finalizar este bloque de ventas y archivarlo en el historial</p>
+                </div>
+            </div>
+
+            <!-- Resumen Financiero del Corte a Cerrar -->
+            <div class="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-950/70 border border-slate-900 text-xs mb-4 shrink-0">
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Total Vendido</span>
+                    <span class="text-sm font-bold text-white font-outfit" id="close-corte-total-sales">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Recaudado</span>
+                    <span class="text-sm font-bold text-emerald-400 font-outfit" id="close-corte-total-collected">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Saldo Pendiente</span>
+                    <span class="text-sm font-bold text-rose-400 font-outfit" id="close-corte-total-pending">$0.00</span>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto pr-1 space-y-4 flex-1">
+                <!-- Estado 1: Si quedan cuentas pendientes -->
+                <div id="close-corte-has-pending-warning" class="space-y-3">
+                    <div class="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs flex gap-2.5 items-start">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+                        <div class="leading-relaxed">
+                            <span class="font-bold block">Hay cuentas pendientes por cobrar en este corte:</span>
+                            Al cerrar el corte, estas cuentas se quitarán de la vista principal pero <strong class="text-amber-100">se traspasarán automáticamente al siguiente corte</strong> para que continúes cobrándolas allí.
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Lista de Cuentas Pendientes a Traspasar (<span id="close-corte-pending-count">0</span>):</h4>
+                        <div id="close-corte-pending-list" class="max-h-40 overflow-y-auto space-y-2 pr-1">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Opción: Abrir de una vez el siguiente corte -->
+                    <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+                        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-200 select-none">
+                            <input type="checkbox" id="close-corte-create-next" checked class="rounded border-slate-700 text-brand-600 focus:ring-0">
+                            <span>Abrir inmediatamente el siguiente corte con estas cuentas traspasadas</span>
+                        </label>
+                        <div id="close-corte-next-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1" for="next-corte-name-input">Nombre del Siguiente Corte</label>
+                                <input type="text" id="next-corte-name-input" placeholder="Ej. Corte 2" 
+                                    class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-100">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1" for="next-corte-date-input">Fecha de Inicio</label>
+                                <input type="date" id="next-corte-date-input" 
+                                    class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estado 2: Si NO quedan cuentas pendientes (100% cobrado) -->
+                <div id="close-corte-clean-success" class="hidden p-4 rounded-2xl bg-emerald-950/30 border border-emerald-800/50 text-emerald-300 text-xs flex gap-3 items-center">
+                    <div class="p-2 bg-emerald-500/20 rounded-xl text-emerald-400 shrink-0">
+                        <i data-lucide="check-check" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold block text-sm">¡Cobranza al 100% completada!</span>
+                        Todos los pedidos de este corte han sido pagados y finiquitados con éxito.
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-900 flex items-center justify-end gap-3 shrink-0">
+                <button type="button" id="btn-cancel-close-corte" class="px-5 py-2.5 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all text-xs">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirm-close-corte" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-semibold rounded-xl text-xs transition-all shadow-lg shadow-rose-600/25 flex items-center gap-2">
+                    <i data-lucide="archive" class="w-4 h-4"></i>
+                    Confirmar Cierre de Corte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE DE CORTE CERRADO -->
+    <div id="corte-detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-4xl rounded-3xl p-6 glow-violet relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <button id="btn-close-corte-detail" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="flex items-center justify-between gap-4 mb-4 shrink-0 pr-8">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-brand-500/20 rounded-xl text-brand-400 border border-brand-500/30">
+                        <i data-lucide="archive" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-bold font-outfit text-white" id="modal-corte-detail-title">Detalle del Corte</h3>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-800" id="modal-corte-detail-badge">Cerrado</span>
+                        </div>
+                        <p class="text-xs text-slate-400" id="modal-corte-detail-dates">Fechas...</p>
+                    </div>
+                </div>
+
+                <button id="btn-reopen-corte-from-modal" class="hidden px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-brand-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reabrir Corte
+                </button>
+            </div>
+
+            <!-- Métricas Financieras del Corte -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-900 text-xs mb-4 shrink-0">
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Total Vendido</span>
+                    <span class="text-sm font-bold text-white font-outfit" id="modal-corte-kpi-sales">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Total Cobrado</span>
+                    <span class="text-sm font-bold text-emerald-400 font-outfit" id="modal-corte-kpi-collected">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Inversión Costos</span>
+                    <span class="text-sm font-bold text-amber-300 font-outfit" id="modal-corte-kpi-cost">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Ganancia Neta</span>
+                    <span class="text-sm font-bold text-brand-400 font-outfit" id="modal-corte-kpi-profit">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-500 uppercase block font-semibold">Saldo Traspasado</span>
+                    <span class="text-sm font-bold text-rose-400 font-outfit" id="modal-corte-kpi-pending">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Tabla de Pedidos del Corte -->
+            <div class="flex-1 overflow-y-auto pr-1">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i> Pedidos y Clientes de este Corte
+                </h4>
+                <div class="glass-panel rounded-xl overflow-hidden border border-slate-900">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-900 bg-slate-950/80 text-slate-400 font-semibold uppercase text-[10px]">
+                                <th class="py-2.5 px-4">Cliente</th>
+                                <th class="py-2.5 px-4">Prendas</th>
+                                <th class="py-2.5 px-4 text-right">Venta ($)</th>
+                                <th class="py-2.5 px-4 text-right">Abonado ($)</th>
+                                <th class="py-2.5 px-4 text-right">Resta ($)</th>
+                                <th class="py-2.5 px-4 text-center">Estado Pago</th>
+                                <th class="py-2.5 px-4 text-center">Entrega</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-corte-table-body" class="divide-y divide-slate-900/60 text-slate-300">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pt-4 mt-3 border-t border-slate-900 flex justify-between items-center text-xs shrink-0">
+                <span class="text-slate-500" id="modal-corte-orders-count">0 pedidos en este corte</span>
+                <button type="button" id="btn-close-corte-detail-footer" class="px-5 py-2 border border-slate-800 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-all">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- PANTALLA DE LOGIN (Bloquea la aplicación hasta autenticarse) -->
     <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 px-4">
         <!-- Fondo animado con círculos brillantes -->
@@ -1024,6 +1425,12 @@
                     <div class="mt-2 text-right">
                         <button type="button" id="btn-forgot-password-link" class="text-[10px] font-semibold text-brand-400 hover:text-brand-300 transition-colors uppercase tracking-wide">¿Olvidaste tu contraseña?</button>
                     </div>
+                </div>
+
+                <!-- Mensaje de error visible en pantalla de inicio -->
+                <div id="login-error-alert" class="hidden p-3.5 rounded-2xl bg-rose-950/80 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2.5 animate-in fade-in duration-200">
+                    <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0"></i>
+                    <span id="login-error-text" class="flex-1 font-medium leading-relaxed">Credenciales incorrectas</span>
                 </div>
 
                 <button type="submit" id="btn-login-submit" 

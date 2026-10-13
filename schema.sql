@@ -18,9 +18,23 @@ CREATE TABLE IF NOT EXISTS clientes (
 CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
 
 -- ==========================================
--- ACTUALIZACIÓN / MIGRACIÓN RÁPIDA (Si ya tenías las tablas creadas):
--- Ejecuta la siguiente línea en tu SQL Editor para actualizar la tabla:
+-- ACTUALIZACIÓN / MIGRACIÓN RÁPIDA (Si ya tenías las tablas creadas en Supabase):
+-- Ejecuta las siguientes líneas en tu SQL Editor:
+-- 
 -- ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT;
+--
+-- CREATE TABLE IF NOT EXISTS cortes (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     nombre TEXT NOT NULL,
+--     fecha_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+--     fecha_cierre TIMESTAMPTZ,
+--     estado TEXT NOT NULL DEFAULT 'activo',
+--     descripcion TEXT,
+--     creado_en TIMESTAMPTZ DEFAULT now()
+-- );
+-- ALTER TABLE ventas ADD COLUMN IF NOT EXISTS corte_id UUID REFERENCES cortes(id) ON DELETE SET NULL;
+-- ALTER TABLE cortes ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en cortes" ON cortes FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 -- ==========================================
 
 -- 2. Tabla de Ventas
@@ -100,19 +114,45 @@ ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ventas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE abonos ENABLE ROW LEVEL SECURITY;
 
+-- ==========================================
+-- 5. Tabla de Cortes (Lotes o Bloques de Venta)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS cortes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre TEXT NOT NULL,
+    fecha_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_cierre TIMESTAMPTZ,
+    estado TEXT NOT NULL DEFAULT 'activo', -- 'activo' | 'cerrado'
+    descripcion TEXT,
+    creado_en TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT chk_estado_corte CHECK (estado IN ('activo', 'cerrado'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cortes_estado ON cortes(estado);
+CREATE INDEX IF NOT EXISTS idx_cortes_fecha_inicio ON cortes(fecha_inicio);
+
+-- Agregar columna corte_id a la tabla ventas si no existe
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS corte_id UUID REFERENCES cortes(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_ventas_corte_id ON ventas(corte_id);
+
+ALTER TABLE cortes ENABLE ROW LEVEL SECURITY;
+
 -- Eliminar políticas previas si existen para permitir re-ejecución sin errores
 DROP POLICY IF EXISTS "Permitir lectura y escritura pública en clientes" ON clientes;
 DROP POLICY IF EXISTS "Permitir lectura y escritura pública en productos" ON productos;
 DROP POLICY IF EXISTS "Permitir lectura y escritura pública en ventas" ON ventas;
 DROP POLICY IF EXISTS "Permitir lectura y escritura pública en abonos" ON abonos;
+DROP POLICY IF EXISTS "Permitir lectura y escritura pública en cortes" ON cortes;
 
 DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en clientes" ON clientes;
 DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en productos" ON productos;
 DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en ventas" ON ventas;
 DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en abonos" ON abonos;
+DROP POLICY IF EXISTS "Permitir acceso completo solo a usuarios autenticados en cortes" ON cortes;
 
 -- Crear políticas de acceso seguro (solo usuarios autenticados)
 CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en clientes" ON clientes FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en productos" ON productos FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en ventas" ON ventas FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en abonos" ON abonos FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en cortes" ON cortes FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);

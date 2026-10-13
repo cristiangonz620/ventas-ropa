@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- ESTADO GENERAL ---
     const state = {
         sales: [],
+        cortes: [],
+        activeCorte: null,
+        corteScope: 'active', // 'active' | 'all' | 'archived'
+        selectedCorteForDetail: null,
         bcvRate: parseFloat(localStorage.getItem('global_bcv_rate')) || 45.50,
         currentTab: 'dashboard',
         selectedSaleForAbono: null,
@@ -24,13 +28,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = {
         // Navegación
         tabDashboard: document.getElementById('tab-dashboard'),
+        tabDashboardText: document.getElementById('tab-dashboard-text'),
         tabEncargo: document.getElementById('tab-encargo'),
         tabAbonos: document.getElementById('tab-abonos'),
+        tabCortes: document.getElementById('tab-cortes'),
         tabReportes: document.getElementById('tab-reportes'),
         contentDashboard: document.getElementById('content-dashboard'),
         contentEncargo: document.getElementById('content-encargo'),
         contentAbonos: document.getElementById('content-abonos'),
+        contentCortes: document.getElementById('content-cortes'),
         contentReportes: document.getElementById('content-reportes'),
+        
+        // Banner de Corte Activo
+        activeCorteBanner: document.getElementById('active-corte-banner'),
+        noActiveCorteBanner: document.getElementById('no-active-corte-banner'),
+        corteActiveTitle: document.getElementById('corte-active-title'),
+        corteActiveDesc: document.getElementById('corte-active-desc'),
+        corteActiveDateBadge: document.getElementById('corte-active-date-badge'),
+        btnOpenCloseCorte: document.getElementById('btn-open-close-corte'),
+        btnOpenNewCorteDashboard: document.getElementById('btn-open-new-corte-dashboard'),
+        btnStartFirstCorte: document.getElementById('btn-start-first-corte'),
+        btnGotoCortesHistory: document.getElementById('btn-goto-cortes-history'),
+        corteScopeFilter: document.getElementById('corte-scope-filter'),
+        dashboardTableTitle: document.getElementById('dashboard-table-title'),
+        dashboardTableSubtitle: document.getElementById('dashboard-table-subtitle'),
+
+        // Historial de Cortes
+        btnToggleUnassignedSales: document.getElementById('btn-toggle-unassigned-sales'),
+        btnNewCorteHistoryTab: document.getElementById('btn-new-corte-history-tab'),
+        searchCortesInput: document.getElementById('search-cortes-input'),
+        cortesCountBadge: document.getElementById('cortes-count-badge'),
+        cortesGrid: document.getElementById('cortes-grid'),
+        unassignedSalesSection: document.getElementById('unassigned-sales-section'),
+        btnCloseUnassignedSales: document.getElementById('btn-close-unassigned-sales'),
+        unassignedSalesTableBody: document.getElementById('unassigned-sales-table-body'),
+
+        // Modales de Cortes
+        newCorteModal: document.getElementById('new-corte-modal'),
+        btnCloseNewCorte: document.getElementById('btn-close-new-corte'),
+        btnCancelNewCorte: document.getElementById('btn-cancel-new-corte'),
+        formNewCorte: document.getElementById('form-new-corte'),
+        newCorteName: document.getElementById('new-corte-name'),
+        newCorteDate: document.getElementById('new-corte-date'),
+        newCorteDesc: document.getElementById('new-corte-desc'),
+        newCortePendingSection: document.getElementById('new-corte-pending-section'),
+        checkSelectAllPending: document.getElementById('check-select-all-pending'),
+        newCortePendingList: document.getElementById('new-corte-pending-list'),
+
+        closeCorteModal: document.getElementById('close-corte-modal'),
+        btnCloseCloseCorte: document.getElementById('btn-close-close-corte'),
+        btnCancelCloseCorte: document.getElementById('btn-cancel-close-corte'),
+        btnConfirmCloseCorte: document.getElementById('btn-confirm-close-corte'),
+        closeCorteTitle: document.getElementById('close-corte-title'),
+        closeCorteTotalSales: document.getElementById('close-corte-total-sales'),
+        closeCorteTotalCollected: document.getElementById('close-corte-total-collected'),
+        closeCorteTotalPending: document.getElementById('close-corte-total-pending'),
+        closeCorteHasPendingWarning: document.getElementById('close-corte-has-pending-warning'),
+        closeCortePendingCount: document.getElementById('close-corte-pending-count'),
+        closeCortePendingList: document.getElementById('close-corte-pending-list'),
+        closeCorteCreateNext: document.getElementById('close-corte-create-next'),
+        closeCorteNextFields: document.getElementById('close-corte-next-fields'),
+        nextCorteNameInput: document.getElementById('next-corte-name-input'),
+        nextCorteDateInput: document.getElementById('next-corte-date-input'),
+        closeCorteCleanSuccess: document.getElementById('close-corte-clean-success'),
+
+        corteDetailModal: document.getElementById('corte-detail-modal'),
+        btnCloseCorteDetail: document.getElementById('btn-close-corte-detail'),
+        btnCloseCorteDetailFooter: document.getElementById('btn-close-corte-detail-footer'),
+        modalCorteDetailTitle: document.getElementById('modal-corte-detail-title'),
+        modalCorteDetailBadge: document.getElementById('modal-corte-detail-badge'),
+        modalCorteDetailDates: document.getElementById('modal-corte-detail-dates'),
+        modalCorteKpiSales: document.getElementById('modal-corte-kpi-sales'),
+        modalCorteKpiCollected: document.getElementById('modal-corte-kpi-collected'),
+        modalCorteKpiCost: document.getElementById('modal-corte-kpi-cost'),
+        modalCorteKpiProfit: document.getElementById('modal-corte-kpi-profit'),
+        modalCorteKpiPending: document.getElementById('modal-corte-kpi-pending'),
+        modalCorteTableBody: document.getElementById('modal-corte-table-body'),
+        modalCorteOrdersCount: document.getElementById('modal-corte-orders-count'),
+        btnReopenCorteFromModal: document.getElementById('btn-reopen-corte-from-modal'),
         
         // Configuración y Avisos
         setupWarning: document.getElementById('setup-warning'),
@@ -93,6 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
         formLogin: document.getElementById('form-login'),
         loginEmail: document.getElementById('login-email'),
         loginPassword: document.getElementById('login-password'),
+        loginErrorAlert: document.getElementById('login-error-alert'),
+        loginErrorText: document.getElementById('login-error-text'),
         btnLogout: document.getElementById('btn-logout'),
 
         // Recuperación de Contraseña
@@ -278,11 +355,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Usuario autenticado
                 el.loginOverlay.classList.add('hidden');
                 el.btnLogout.classList.remove('hidden');
+                if (el.loginErrorAlert) el.loginErrorAlert.classList.add('hidden');
                 loadData();
             } else {
                 // Usuario no autenticado
                 el.loginOverlay.classList.remove('hidden');
                 el.btnLogout.classList.add('hidden');
+                if (el.loginErrorAlert) el.loginErrorAlert.classList.add('hidden');
                 clearStateAndUI();
             }
         });
@@ -290,6 +369,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clearStateAndUI() {
         state.sales = [];
+        state.cortes = [];
+        state.activeCorte = null;
+        state.corteScope = 'active';
+        if (el.activeCorteBanner) el.activeCorteBanner.classList.add('hidden');
+        if (el.noActiveCorteBanner) el.noActiveCorteBanner.classList.remove('hidden');
+
         // Limpiar tablas
         el.salesTableBody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">Inicia sesión para ver los pedidos</td></tr>';
         el.abonoVentaSelect.innerHTML = '<option value="" disabled selected>Inicia sesión primero...</option>';
@@ -431,13 +516,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showToast(title, message, type = 'success') {
+    // --- NOTIFICACIONES TOAST MEJORADAS ---
+    function dismissToast(toast) {
+        if (!toast || toast.dataset.dismissing === 'true') return;
+        toast.dataset.dismissing = 'true';
+        toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px) scale(0.95)';
+        toast.style.maxHeight = '0px';
+        toast.style.marginTop = '0px';
+        toast.style.marginBottom = '0px';
+        toast.style.paddingTop = '0px';
+        toast.style.paddingBottom = '0px';
+        toast.style.overflow = 'hidden';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 320);
+    }
+
+    function clearAllToasts() {
+        if (!el.toastContainer) return;
+        const all = el.toastContainer.querySelectorAll('.toast-card');
+        all.forEach(t => dismissToast(t));
+    }
+
+    function showToast(title, message, type = 'success', duration = 4000) {
+        if (!el.toastContainer) return;
+
+        // Limitar a máximo 3 toasts simultáneos para no saturar la pantalla
+        const activeToasts = el.toastContainer.querySelectorAll('.toast-card:not([data-dismissing="true"])');
+        if (activeToasts.length >= 3) {
+            dismissToast(activeToasts[0]);
+        }
+
         const id = 'toast-' + Math.random().toString(36).substr(2, 9);
         const colorClasses = {
-            success: 'bg-emerald-950/90 border-emerald-800 text-emerald-200',
-            error: 'bg-rose-950/90 border-rose-800 text-rose-200',
-            warning: 'bg-amber-950/90 border-amber-800 text-amber-200',
-            info: 'bg-blue-950/90 border-blue-800 text-blue-200'
+            success: 'bg-emerald-950/95 border-emerald-700/80 text-emerald-200 shadow-emerald-950/60',
+            error: 'bg-rose-950/95 border-rose-700/80 text-rose-200 shadow-rose-950/60',
+            warning: 'bg-amber-950/95 border-amber-700/80 text-amber-200 shadow-amber-950/60',
+            info: 'bg-blue-950/95 border-blue-700/80 text-blue-200 shadow-blue-950/60'
         };
 
         const iconMap = {
@@ -447,30 +566,73 @@ document.addEventListener('DOMContentLoaded', () => {
             info: 'info'
         };
 
-        const html = `
-            <div id="${id}" class="flex items-start gap-3 p-4 rounded-2xl border ${colorClasses[type]} shadow-2xl backdrop-blur-md pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300">
-                <i data-lucide="${iconMap[type]}" class="w-5 h-5 shrink-0 mt-0.5"></i>
-                <div class="flex-1">
-                    <h4 class="text-xs font-bold font-outfit uppercase tracking-wider">${title}</h4>
-                    <p class="text-xs mt-1 text-slate-300 font-medium">${message}</p>
-                </div>
-                <button onclick="document.getElementById('${id}').remove()" class="text-slate-400 hover:text-white transition-colors shrink-0">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
+        const iconColor = {
+            success: 'text-emerald-400',
+            error: 'text-rose-400',
+            warning: 'text-amber-400',
+            info: 'text-blue-400'
+        };
+
+        // Traducir mensajes técnicos de Supabase al español comprensible
+        let displayMessage = message;
+        if (typeof message === 'string') {
+            if (message.includes('Invalid login credentials')) {
+                displayMessage = 'El correo electrónico o la contraseña ingresada son incorrectos.';
+            } else if (message.includes('Email not confirmed')) {
+                displayMessage = 'El correo electrónico no ha sido verificado aún.';
+            } else if (message.includes('Rate limit exceeded')) {
+                displayMessage = 'Demasiados intentos. Espera unos momentos antes de reintentar.';
+            } else if (message.includes('User already registered')) {
+                displayMessage = 'Ya existe una cuenta con este correo.';
+            }
+        }
+
+        const toast = document.createElement('div');
+        toast.id = id;
+        toast.className = `toast-card flex items-start gap-3 p-4 rounded-2xl border ${colorClasses[type]} shadow-2xl backdrop-blur-md pointer-events-auto transition-all duration-300 opacity-0 -translate-y-2`;
+        toast.innerHTML = `
+            <i data-lucide="${iconMap[type]}" class="w-5 h-5 shrink-0 mt-0.5 ${iconColor[type]}"></i>
+            <div class="flex-1 min-w-0 pr-1">
+                <h4 class="text-xs font-bold font-outfit uppercase tracking-wider">${title}</h4>
+                <p class="text-xs mt-1 text-slate-300 font-medium leading-relaxed">${displayMessage}</p>
             </div>
+            <button type="button" class="btn-close-toast text-slate-400 hover:text-white transition-colors shrink-0 p-1 -mr-1 -mt-1 rounded-lg hover:bg-white/10">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
         `;
-        
-        el.toastContainer.insertAdjacentHTML('beforeend', html);
+
+        el.toastContainer.appendChild(toast);
         lucide.createIcons();
 
-        // Autocerrado
-        setTimeout(() => {
-            const toast = document.getElementById(id);
-            if (toast) {
-                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-4', 'duration-300');
-                toast.addEventListener('animationend', () => toast.remove());
-            }
-        }, 5000);
+        // Animar entrada suave en el siguiente frame
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+
+        // Temporizador de auto-cierre garantizado
+        let timer = setTimeout(() => {
+            dismissToast(toast);
+        }, duration);
+
+        // Si el usuario posiciona el cursor sobre el toast, pausar el timer para que pueda leerlo
+        toast.addEventListener('mouseenter', () => {
+            clearTimeout(timer);
+        });
+        toast.addEventListener('mouseleave', () => {
+            timer = setTimeout(() => {
+                dismissToast(toast);
+            }, duration);
+        });
+
+        // Botón de cierre manual
+        const btnClose = toast.querySelector('.btn-close-toast');
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                clearTimeout(timer);
+                dismissToast(toast);
+            });
+        }
     }
 
     // --- FORMATEADORES ---
@@ -520,7 +682,79 @@ document.addEventListener('DOMContentLoaded', () => {
         el.tabDashboard.addEventListener('click', () => switchTab('dashboard'));
         el.tabEncargo.addEventListener('click', () => switchTab('encargo'));
         el.tabAbonos.addEventListener('click', () => switchTab('abonos'));
+        el.tabCortes.addEventListener('click', () => switchTab('cortes'));
         el.tabReportes.addEventListener('click', () => switchTab('reportes'));
+
+        // Eventos de Cortes
+        if (el.btnOpenCloseCorte) {
+            el.btnOpenCloseCorte.addEventListener('click', openCloseCorteModal);
+        }
+        if (el.btnOpenNewCorteDashboard) {
+            el.btnOpenNewCorteDashboard.addEventListener('click', openNewCorteModal);
+        }
+        if (el.btnStartFirstCorte) {
+            el.btnStartFirstCorte.addEventListener('click', openNewCorteModal);
+        }
+        if (el.btnGotoCortesHistory) {
+            el.btnGotoCortesHistory.addEventListener('click', () => switchTab('cortes'));
+        }
+        if (el.btnNewCorteHistoryTab) {
+            el.btnNewCorteHistoryTab.addEventListener('click', openNewCorteModal);
+        }
+        if (el.corteScopeFilter) {
+            el.corteScopeFilter.addEventListener('change', (e) => {
+                state.corteScope = e.target.value;
+                renderMetrics();
+                renderTable();
+            });
+        }
+        if (el.btnToggleUnassignedSales) {
+            el.btnToggleUnassignedSales.addEventListener('click', toggleUnassignedSalesSection);
+        }
+        if (el.btnCloseUnassignedSales) {
+            el.btnCloseUnassignedSales.addEventListener('click', () => {
+                el.unassignedSalesSection.classList.add('hidden');
+            });
+        }
+        if (el.searchCortesInput) {
+            el.searchCortesInput.addEventListener('input', renderCortesHistory);
+        }
+
+        // Modal Nuevo Corte listeners
+        if (el.btnCloseNewCorte) el.btnCloseNewCorte.addEventListener('click', () => el.newCorteModal.classList.add('hidden'));
+        if (el.btnCancelNewCorte) el.btnCancelNewCorte.addEventListener('click', () => el.newCorteModal.classList.add('hidden'));
+        if (el.formNewCorte) el.formNewCorte.addEventListener('submit', handleCreateNewCorte);
+        if (el.checkSelectAllPending) {
+            el.checkSelectAllPending.addEventListener('change', (e) => {
+                const checks = el.newCortePendingList.querySelectorAll('input[type="checkbox"]');
+                checks.forEach(c => c.checked = e.target.checked);
+            });
+        }
+
+        // Modal Cerrar Corte listeners
+        if (el.btnCloseCloseCorte) el.btnCloseCloseCorte.addEventListener('click', () => el.closeCorteModal.classList.add('hidden'));
+        if (el.btnCancelCloseCorte) el.btnCancelCloseCorte.addEventListener('click', () => el.closeCorteModal.classList.add('hidden'));
+        if (el.btnConfirmCloseCorte) el.btnConfirmCloseCorte.addEventListener('click', handleConfirmCloseCorte);
+        if (el.closeCorteCreateNext) {
+            el.closeCorteCreateNext.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    el.closeCorteNextFields.classList.remove('hidden');
+                } else {
+                    el.closeCorteNextFields.classList.add('hidden');
+                }
+            });
+        }
+
+        // Modal Detalle Corte listeners
+        if (el.btnCloseCorteDetail) el.btnCloseCorteDetail.addEventListener('click', () => el.corteDetailModal.classList.add('hidden'));
+        if (el.btnCloseCorteDetailFooter) el.btnCloseCorteDetailFooter.addEventListener('click', () => el.corteDetailModal.classList.add('hidden'));
+        if (el.btnReopenCorteFromModal) {
+            el.btnReopenCorteFromModal.addEventListener('click', () => {
+                if (state.selectedCorteForDetail) {
+                    handleReopenCorte(state.selectedCorteForDetail.id);
+                }
+            });
+        }
 
         // Modales
         el.btnOpenSettings.addEventListener('click', () => {
@@ -573,6 +807,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = el.loginEmail.value.trim();
             const password = el.loginPassword.value;
             
+            if (el.loginErrorAlert) el.loginErrorAlert.classList.add('hidden');
+
             if (!window.supabaseClient.isConfigured) {
                 showToast("Error", "Supabase no está configurado en el sistema.", "error");
                 return;
@@ -586,14 +822,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (error) throw error;
+                clearAllToasts();
                 showToast("Acceso Concedido", `¡Bienvenido, ${data.user.email}!`, "success");
             } catch (err) {
                 console.error("Error al iniciar sesión:", err);
-                showToast("Error de acceso", err.message || "Usuario o contraseña incorrectos.", "error");
+                const errorMsg = (err.message && err.message.includes('Invalid login credentials')) 
+                    ? "Correo o contraseña incorrectos." 
+                    : (err.message || "Usuario o contraseña incorrectos.");
+
+                // Mostrar alerta directa en la pantalla de inicio de sesión
+                if (el.loginErrorAlert && el.loginErrorText) {
+                    el.loginErrorText.textContent = errorMsg;
+                    el.loginErrorAlert.classList.remove('hidden');
+                }
+
+                showToast("Error de Acceso", errorMsg, "error");
             } finally {
                 setLoader(false);
             }
         });
+
+        // Ocultar mensaje de error cuando el usuario escribe en los campos
+        if (el.loginEmail) {
+            el.loginEmail.addEventListener('input', () => {
+                if (el.loginErrorAlert) el.loginErrorAlert.classList.add('hidden');
+            });
+        }
+        if (el.loginPassword) {
+            el.loginPassword.addEventListener('input', () => {
+                if (el.loginErrorAlert) el.loginErrorAlert.classList.add('hidden');
+            });
+        }
 
         // Abrir y cerrar modal de recuperar contraseña
         el.btnForgotPasswordLink.addEventListener('click', () => {
@@ -662,6 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
                 try {
                     setLoader(true);
+                    clearAllToasts();
                     const { error } = await window.supabaseClient.supabase.auth.signOut();
                     if (error) throw error;
                     showToast("Sesión Cerrada", "Has cerrado sesión correctamente.", "success");
@@ -903,6 +1163,774 @@ document.addEventListener('DOMContentLoaded', () => {
         el.btnClearFullOrder.addEventListener('click', clearFullOrder);
     }
 
+    // --- GESTIÓN DE CORTES (BLOQUES DE VENTA) ---
+    async function fetchCortes() {
+        if (!window.supabaseClient.isConfigured) return;
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            const { data, error } = await supabase
+                .from('cortes')
+                .select('*')
+                .order('fecha_inicio', { ascending: false });
+
+            if (error) {
+                console.warn("Tabla cortes no disponible en Supabase, usando almacenamiento local:", error.message);
+                const localCortes = JSON.parse(localStorage.getItem('cortes_data') || '[]');
+                state.cortes = localCortes;
+            } else {
+                state.cortes = data || [];
+                localStorage.setItem('cortes_data', JSON.stringify(state.cortes));
+            }
+        } catch (err) {
+            console.warn("Error consultando cortes, usando local:", err);
+            const localCortes = JSON.parse(localStorage.getItem('cortes_data') || '[]');
+            state.cortes = localCortes;
+        }
+
+        state.activeCorte = state.cortes.find(c => c.estado === 'activo') || null;
+    }
+
+    function renderActiveCorteBanner() {
+        if (!el.activeCorteBanner || !el.noActiveCorteBanner) return;
+
+        if (state.activeCorte) {
+            el.activeCorteBanner.classList.remove('hidden');
+            el.noActiveCorteBanner.classList.add('hidden');
+            
+            el.corteActiveTitle.textContent = state.activeCorte.nombre;
+            el.corteActiveDesc.textContent = state.activeCorte.descripcion || "Compras y ventas del ciclo actual";
+            el.corteActiveDateBadge.innerHTML = `<i data-lucide="calendar" class="w-3 h-3 text-slate-500"></i> Desde: ${fmt.dateOnly(state.activeCorte.fecha_inicio)} (${fmt.daysElapsed(state.activeCorte.fecha_inicio)})`;
+            
+            if (el.dashboardTableTitle) {
+                if (state.corteScope === 'active') {
+                    el.dashboardTableTitle.textContent = `Pedidos del ${state.activeCorte.nombre}`;
+                    el.dashboardTableSubtitle.textContent = `Listado de encargos de este bloque de venta, cobros y entregas`;
+                } else if (state.corteScope === 'all') {
+                    el.dashboardTableTitle.textContent = `Todos los Pedidos (Histórico Completo)`;
+                    el.dashboardTableSubtitle.textContent = `Listado consolidado de pedidos de todos los cortes y fechas`;
+                } else {
+                    el.dashboardTableTitle.textContent = `Ventas Previas (Sin Corte Asignado)`;
+                    el.dashboardTableSubtitle.textContent = `Pedidos registrados antes del sistema de cortes`;
+                }
+            }
+            if (el.tabDashboardText) {
+                el.tabDashboardText.textContent = `${state.activeCorte.nombre}`;
+            }
+        } else {
+            el.activeCorteBanner.classList.add('hidden');
+            el.noActiveCorteBanner.classList.remove('hidden');
+            
+            if (el.dashboardTableTitle) {
+                if (state.corteScope === 'all') {
+                    el.dashboardTableTitle.textContent = `Todos los Pedidos (Histórico)`;
+                    el.dashboardTableSubtitle.textContent = `Mostrando pedidos de todos los tiempos`;
+                } else {
+                    el.dashboardTableTitle.textContent = `Control de Pedidos`;
+                    el.dashboardTableSubtitle.textContent = `No hay un corte activo. Inicia uno nuevo para comenzar este bloque de venta.`;
+                }
+            }
+            if (el.tabDashboardText) {
+                el.tabDashboardText.textContent = `Corte Activo & Pedidos`;
+            }
+        }
+        lucide.createIcons();
+    }
+
+    function openNewCorteModal() {
+        if (!el.newCorteModal) return;
+        el.formNewCorte.reset();
+
+        // Sugerir nombre y fecha actual
+        const num = state.cortes.length + 1;
+        const now = new Date();
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const month = monthNames[now.getMonth()];
+        el.newCorteName.value = `Corte ${num} - ${month} ${now.getFullYear()}`;
+        el.newCorteDate.value = now.toISOString().split('T')[0];
+
+        // Buscar pedidos con deuda pendiente para traspasar
+        const pendingSales = state.sales.filter(s => (parseFloat(s.saldo_pendiente_usd) || 0) > 0.01);
+
+        if (pendingSales.length > 0) {
+            el.newCortePendingSection.classList.remove('hidden');
+            el.checkSelectAllPending.checked = true;
+            el.newCortePendingList.innerHTML = "";
+
+            pendingSales.forEach(sale => {
+                const clientName = sale.clientes?.nombre || 'Desconocido';
+                const productsList = sale.productos || [];
+                const prodDesc = productsList.map(p => p.descripcion).join(", ") || 'Prenda';
+                const pendingUsd = parseFloat(sale.saldo_pendiente_usd) || 0;
+                const pendingBs = pendingUsd * state.bcvRate;
+
+                const item = document.createElement('label');
+                item.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-900 hover:border-slate-800 cursor-pointer text-xs";
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                        <input type="checkbox" name="transfer_sale" value="${sale.id}" checked 
+                            class="rounded border-slate-700 text-brand-600 focus:ring-0 shrink-0">
+                        <div class="truncate">
+                            <span class="font-semibold text-white block truncate">${clientName}</span>
+                            <span class="text-[11px] text-slate-400 block truncate">${prodDesc}</span>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="font-bold text-rose-400 block">${fmt.usd(pendingUsd)}</span>
+                        <span class="text-[10px] text-amber-400/90">${fmt.bs(pendingBs)}</span>
+                    </div>
+                `;
+                el.newCortePendingList.appendChild(item);
+            });
+        } else {
+            el.newCortePendingSection.classList.add('hidden');
+            el.newCortePendingList.innerHTML = "";
+        }
+
+        el.newCorteModal.classList.remove('hidden');
+    }
+
+    async function handleCreateNewCorte(e) {
+        e.preventDefault();
+        const name = el.newCorteName.value.trim();
+        const dateVal = el.newCorteDate.value;
+        const desc = el.newCorteDesc.value.trim();
+
+        if (!name || !dateVal) {
+            showToast("Validación", "Nombre y fecha de inicio son requeridos.", "warning");
+            return;
+        }
+
+        // Obtener IDs de ventas seleccionadas para transferir
+        const checkedBoxes = el.newCortePendingList.querySelectorAll('input[type="checkbox"]:checked');
+        const salesToTransfer = Array.from(checkedBoxes).map(cb => cb.value);
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            // 1. Cerrar cualquier corte que estuviese activo actualmente
+            if (state.activeCorte) {
+                if (window.supabaseClient.isConfigured) {
+                    await supabase
+                        .from('cortes')
+                        .update({ estado: 'cerrado', fecha_cierre: new Date().toISOString() })
+                        .eq('id', state.activeCorte.id);
+                }
+                state.activeCorte.estado = 'cerrado';
+                state.activeCorte.fecha_cierre = new Date().toISOString();
+            }
+
+            // 2. Insertar nuevo corte
+            let newCorteId = null;
+            let createdCorte = null;
+
+            if (window.supabaseClient.isConfigured) {
+                const { data: newCorte, error: corteErr } = await supabase
+                    .from('cortes')
+                    .insert([{
+                        nombre: name,
+                        fecha_inicio: dateVal,
+                        estado: 'activo',
+                        descripcion: desc || null
+                    }])
+                    .select()
+                    .single();
+
+                if (corteErr) {
+                    console.warn("Fallo insert en Supabase cortes, usando local fallback:", corteErr.message);
+                } else {
+                    createdCorte = newCorte;
+                    newCorteId = newCorte.id;
+                }
+            }
+
+            // Fallback local si no se pudo en Supabase
+            if (!createdCorte) {
+                newCorteId = 'local-corte-' + Date.now();
+                createdCorte = {
+                    id: newCorteId,
+                    nombre: name,
+                    fecha_inicio: dateVal,
+                    fecha_cierre: null,
+                    estado: 'activo',
+                    descripcion: desc || null,
+                    creado_en: new Date().toISOString()
+                };
+            }
+
+            // 3. Traspasar las ventas pendientes seleccionadas al nuevo corte
+            if (salesToTransfer.length > 0) {
+                if (window.supabaseClient.isConfigured) {
+                    try {
+                        const { error: transferErr } = await supabase
+                            .from('ventas')
+                            .update({ corte_id: newCorteId })
+                            .in('id', salesToTransfer);
+                        if (transferErr) console.warn("Traspaso en BD:", transferErr.message);
+                    } catch (tErr) {
+                        console.warn("Error en traspaso:", tErr);
+                    }
+                }
+
+                // Guardar mapping local
+                const localMap = JSON.parse(localStorage.getItem('ventas_corte_map') || '{}');
+                salesToTransfer.forEach(sId => localMap[sId] = newCorteId);
+                localStorage.setItem('ventas_corte_map', JSON.stringify(localMap));
+            }
+
+            // Actualizar estado local
+            const updatedCortes = state.cortes.map(c => ({
+                ...c,
+                estado: c.id === newCorteId ? 'activo' : 'cerrado'
+            }));
+            if (!updatedCortes.some(c => c.id === newCorteId)) {
+                updatedCortes.unshift(createdCorte);
+            }
+            state.cortes = updatedCortes;
+            localStorage.setItem('cortes_data', JSON.stringify(state.cortes));
+            state.activeCorte = createdCorte;
+            state.corteScope = 'active';
+
+            el.newCorteModal.classList.add('hidden');
+            showToast("Corte Iniciado", `Has iniciado "${name}" con éxito.${salesToTransfer.length > 0 ? ` Se traspasaron ${salesToTransfer.length} cuentas pendientes.` : ''}`, "success");
+            
+            await loadData();
+            switchTab('dashboard');
+
+        } catch (err) {
+            console.error("Error al iniciar corte:", err);
+            showToast("Error", "No se pudo iniciar el corte: " + err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    function openCloseCorteModal() {
+        if (!state.activeCorte) {
+            showToast("Aviso", "No hay ningún corte activo para cerrar.", "info");
+            return;
+        }
+
+        // Ventas de este corte
+        const corteSales = state.sales.filter(s => s.corte_id === state.activeCorte.id);
+        const totalSales = corteSales.reduce((acc, s) => acc + (parseFloat(s.monto_total_usd) || 0), 0);
+        const totalPending = corteSales.reduce((acc, s) => acc + (parseFloat(s.saldo_pendiente_usd) || 0), 0);
+        const totalCollected = Math.max(0, totalSales - totalPending);
+
+        el.closeCorteTitle.textContent = `Cerrar: ${state.activeCorte.nombre}`;
+        el.closeCorteTotalSales.textContent = fmt.usd(totalSales);
+        el.closeCorteTotalCollected.textContent = fmt.usd(totalCollected);
+        el.closeCorteTotalPending.textContent = fmt.usd(totalPending);
+
+        const pendingSales = corteSales.filter(s => (parseFloat(s.saldo_pendiente_usd) || 0) > 0.01);
+
+        if (pendingSales.length > 0) {
+            el.closeCorteHasPendingWarning.classList.remove('hidden');
+            el.closeCorteCleanSuccess.classList.add('hidden');
+            el.closeCortePendingCount.textContent = pendingSales.length;
+
+            el.closeCortePendingList.innerHTML = "";
+            pendingSales.forEach(sale => {
+                const clientName = sale.clientes?.nombre || 'Desconocido';
+                const productsList = sale.productos || [];
+                const prodDesc = productsList.map(p => p.descripcion).join(", ") || 'Prenda';
+                const pendingUsd = parseFloat(sale.saldo_pendiente_usd) || 0;
+                const pendingBs = pendingUsd * state.bcvRate;
+
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 border border-slate-900 text-xs";
+                item.innerHTML = `
+                    <div class="truncate pr-2">
+                        <span class="font-semibold text-white block truncate">${clientName}</span>
+                        <span class="text-[11px] text-slate-400 block truncate">${prodDesc}</span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="font-bold text-rose-400 block">${fmt.usd(pendingUsd)}</span>
+                        <span class="text-[10px] text-amber-400">${fmt.bs(pendingBs)}</span>
+                    </div>
+                `;
+                el.closeCortePendingList.appendChild(item);
+            });
+
+            // Prellenar nombre para siguiente corte
+            const num = state.cortes.length + 1;
+            el.nextCorteNameInput.value = `Corte ${num}`;
+            el.nextCorteDateInput.value = new Date().toISOString().split('T')[0];
+            el.closeCorteCreateNext.checked = true;
+            el.closeCorteNextFields.classList.remove('hidden');
+        } else {
+            el.closeCorteHasPendingWarning.classList.add('hidden');
+            el.closeCorteCleanSuccess.classList.remove('hidden');
+        }
+
+        el.closeCorteModal.classList.remove('hidden');
+    }
+
+    async function handleConfirmCloseCorte() {
+        if (!state.activeCorte) return;
+
+        const currentCorteId = state.activeCorte.id;
+        const currentCorteName = state.activeCorte.nombre;
+        const createNext = el.closeCorteCreateNext.checked && !el.closeCorteHasPendingWarning.classList.contains('hidden');
+        const nextName = el.nextCorteNameInput.value.trim() || `Corte ${state.cortes.length + 1}`;
+        const nextDate = el.nextCorteDateInput.value || new Date().toISOString().split('T')[0];
+
+        // Ventas con saldo pendiente del corte actual
+        const corteSales = state.sales.filter(s => s.corte_id === currentCorteId);
+        const pendingSales = corteSales.filter(s => (parseFloat(s.saldo_pendiente_usd) || 0) > 0.01);
+        const pendingSaleIds = pendingSales.map(s => s.id);
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            // 1. Marcar corte actual como cerrado
+            const closeTimestamp = new Date().toISOString();
+            if (window.supabaseClient.isConfigured) {
+                await supabase
+                    .from('cortes')
+                    .update({ estado: 'cerrado', fecha_cierre: closeTimestamp })
+                    .eq('id', currentCorteId);
+            }
+
+            state.activeCorte.estado = 'cerrado';
+            state.activeCorte.fecha_cierre = closeTimestamp;
+
+            // 2. Si se solicita crear el siguiente corte inmediatamente
+            if (createNext) {
+                let newCorteId = null;
+                let newCorteObj = null;
+
+                if (window.supabaseClient.isConfigured) {
+                    const { data: created, error: crErr } = await supabase
+                        .from('cortes')
+                        .insert([{
+                            nombre: nextName,
+                            fecha_inicio: nextDate,
+                            estado: 'activo',
+                            descripcion: `Continuación de ${currentCorteName}`
+                        }])
+                        .select()
+                        .single();
+
+                    if (!crErr && created) {
+                        newCorteId = created.id;
+                        newCorteObj = created;
+                    }
+                }
+
+                if (!newCorteObj) {
+                    newCorteId = 'local-corte-' + Date.now();
+                    newCorteObj = {
+                        id: newCorteId,
+                        nombre: nextName,
+                        fecha_inicio: nextDate,
+                        fecha_cierre: null,
+                        estado: 'activo',
+                        descripcion: `Continuación de ${currentCorteName}`,
+                        creado_en: new Date().toISOString()
+                    };
+                }
+
+                // Traspasar las ventas pendientes al nuevo corte
+                if (pendingSaleIds.length > 0) {
+                    if (window.supabaseClient.isConfigured) {
+                        try {
+                            await supabase
+                                .from('ventas')
+                                .update({ corte_id: newCorteId })
+                                .in('id', pendingSaleIds);
+                        } catch (tErr) {
+                            console.warn("Traspaso BD:", tErr);
+                        }
+                    }
+
+                    const localMap = JSON.parse(localStorage.getItem('ventas_corte_map') || '{}');
+                    pendingSaleIds.forEach(sId => localMap[sId] = newCorteId);
+                    localStorage.setItem('ventas_corte_map', JSON.stringify(localMap));
+                }
+
+                state.cortes.unshift(newCorteObj);
+                state.activeCorte = newCorteObj;
+
+                showToast("Corte Cerrado y Nuevo Abierto", `Se cerró "${currentCorteName}" y se inició "${nextName}" con ${pendingSaleIds.length} cuentas traspasadas.`, "success");
+            } else {
+                state.activeCorte = null;
+                showToast("Corte Cerrado", `"${currentCorteName}" ha sido cerrado y guardado en el historial.`, "success");
+            }
+
+            // Sincronizar cortes locales
+            localStorage.setItem('cortes_data', JSON.stringify(state.cortes));
+
+            el.closeCorteModal.classList.add('hidden');
+            await loadData();
+            switchTab('dashboard');
+
+        } catch (err) {
+            console.error("Error al cerrar corte:", err);
+            showToast("Error", "No se pudo cerrar el corte: " + err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    function renderCortesHistory() {
+        if (!el.cortesGrid) return;
+        const query = (el.searchCortesInput?.value || "").toLowerCase().trim();
+        const container = el.cortesGrid;
+        container.innerHTML = "";
+
+        const closedCortes = state.cortes.filter(c => c.estado === 'cerrado');
+        const filtered = closedCortes.filter(c => {
+            const name = (c.nombre || "").toLowerCase();
+            const desc = (c.descripcion || "").toLowerCase();
+            const date = fmt.dateOnly(c.fecha_inicio).toLowerCase();
+            return name.includes(query) || desc.includes(query) || date.includes(query);
+        });
+
+        if (el.cortesCountBadge) {
+            el.cortesCountBadge.textContent = `${closedCortes.length} corte${closedCortes.length === 1 ? '' : 's'} cerrado${closedCortes.length === 1 ? '' : 's'}`;
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full py-12 text-center text-slate-500 glass-panel rounded-2xl p-6">
+                    <div class="flex flex-col items-center gap-3">
+                        <i data-lucide="archive" class="w-10 h-10 text-slate-600"></i>
+                        <span class="font-medium text-slate-400">No hay cortes cerrados en el historial.</span>
+                        <p class="text-xs text-slate-500 max-w-sm">Cuando finalices un ciclo de ventas y presiones "Cerrar Este Corte", se guardará aquí con todas sus métricas y pedidos para consultarlo cuando quieras.</p>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            return;
+        }
+
+        filtered.forEach(corte => {
+            const corteSales = state.sales.filter(s => s.corte_id === corte.id);
+            let totalSales = 0;
+            let totalPending = 0;
+            let totalCost = 0;
+
+            corteSales.forEach(sale => {
+                const sTotal = parseFloat(sale.monto_total_usd) || 0;
+                const sPending = parseFloat(sale.saldo_pendiente_usd) || 0;
+                const pList = sale.productos || [];
+                const cost = pList.reduce((acc, p) => acc + (parseFloat(p.precio_costo_usd) || 0), 0);
+
+                totalSales += sTotal;
+                totalPending += sPending;
+                totalCost += cost;
+            });
+
+            const totalCollected = Math.max(0, totalSales - totalPending);
+            const profit = totalSales - totalCost;
+            const markup = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+
+            const card = document.createElement('div');
+            card.className = "glass-panel rounded-2xl p-5 border border-slate-800/80 hover:border-brand-500/40 transition-all flex flex-col justify-between gap-4 group";
+            
+            const startText = fmt.dateOnly(corte.fecha_inicio);
+            const closeText = corte.fecha_cierre ? fmt.dateOnly(corte.fecha_cierre) : 'Sin fecha';
+
+            card.innerHTML = `
+                <div>
+                    <div class="flex items-start justify-between gap-2 border-b border-slate-800/60 pb-3">
+                        <div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-800 mb-1">
+                                Corte Archivado
+                            </span>
+                            <h3 class="text-base font-bold font-outfit text-white group-hover:text-brand-300 transition-colors">${corte.nombre}</h3>
+                            <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
+                                <i data-lucide="calendar" class="w-3 h-3"></i>
+                                <span>${startText} - ${closeText}</span>
+                            </div>
+                        </div>
+                        <div class="p-2 bg-slate-900 rounded-xl text-slate-400 border border-slate-800 shrink-0">
+                            <i data-lucide="archive" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+
+                    ${corte.descripcion ? `<p class="text-xs text-slate-400 mt-2 line-clamp-2">${corte.descripcion}</p>` : ''}
+
+                    <!-- Grid de Métricas del Corte -->
+                    <div class="grid grid-cols-2 gap-2 mt-3.5 bg-slate-950/70 p-3 rounded-xl border border-slate-900 text-xs">
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase block font-semibold">Total Vendido</span>
+                            <span class="font-bold text-white">${fmt.usd(totalSales)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase block font-semibold">Recaudado</span>
+                            <span class="font-semibold text-emerald-400">${fmt.usd(totalCollected)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase block font-semibold">Inversión Ropa</span>
+                            <span class="font-medium text-amber-300">${fmt.usd(totalCost)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase block font-semibold">Ganancia Neta</span>
+                            <span class="font-black text-brand-400">${fmt.usd(profit)} <span class="text-[10px] text-slate-500 font-normal">(${markup.toFixed(0)}%)</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-900/80">
+                    <span class="text-[11px] text-slate-500">${corteSales.length} pedido${corteSales.length === 1 ? '' : 's'}</span>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-reopen-corte px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg text-xs font-medium border border-slate-800 transition-all"
+                            data-corte-id="${corte.id}" title="Reabrir corte si se cerró por error">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button class="btn-view-corte-detail px-3 py-1.5 bg-brand-600/30 hover:bg-brand-600/50 border border-brand-500/40 text-brand-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                            data-corte-id="${corte.id}">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver Pedidos
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const btnDetail = card.querySelector('.btn-view-corte-detail');
+            if (btnDetail) {
+                btnDetail.addEventListener('click', () => openCorteDetailModal(corte.id));
+            }
+
+            const btnReopen = card.querySelector('.btn-reopen-corte');
+            if (btnReopen) {
+                btnReopen.addEventListener('click', () => handleReopenCorte(corte.id));
+            }
+
+            container.appendChild(card);
+        });
+
+        lucide.createIcons();
+    }
+
+    function openCorteDetailModal(corteId) {
+        const corte = state.cortes.find(c => c.id === corteId);
+        if (!corte) return;
+        state.selectedCorteForDetail = corte;
+
+        const corteSales = state.sales.filter(s => s.corte_id === corte.id);
+        let totalSales = 0;
+        let totalPending = 0;
+        let totalCost = 0;
+
+        corteSales.forEach(sale => {
+            const sTotal = parseFloat(sale.monto_total_usd) || 0;
+            const sPending = parseFloat(sale.saldo_pendiente_usd) || 0;
+            const pList = sale.productos || [];
+            const cost = pList.reduce((acc, p) => acc + (parseFloat(p.precio_costo_usd) || 0), 0);
+
+            totalSales += sTotal;
+            totalPending += sPending;
+            totalCost += cost;
+        });
+
+        const totalCollected = Math.max(0, totalSales - totalPending);
+        const profit = totalSales - totalCost;
+
+        el.modalCorteDetailTitle.textContent = corte.nombre;
+        el.modalCorteDetailDates.textContent = `Desde ${fmt.dateOnly(corte.fecha_inicio)} hasta ${corte.fecha_cierre ? fmt.dateOnly(corte.fecha_cierre) : 'Actualidad'}`;
+        el.modalCorteDetailBadge.textContent = corte.estado === 'activo' ? 'Activo' : 'Cerrado';
+        
+        el.modalCorteKpiSales.textContent = fmt.usd(totalSales);
+        el.modalCorteKpiCollected.textContent = fmt.usd(totalCollected);
+        el.modalCorteKpiCost.textContent = fmt.usd(totalCost);
+        el.modalCorteKpiProfit.textContent = fmt.usd(profit);
+        el.modalCorteKpiPending.textContent = fmt.usd(totalPending);
+
+        el.modalCorteOrdersCount.textContent = `${corteSales.length} pedido${corteSales.length === 1 ? '' : 's'} en este corte`;
+
+        const tbody = el.modalCorteTableBody;
+        tbody.innerHTML = "";
+
+        if (corteSales.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Este corte no tiene pedidos registrados.</td></tr>`;
+        } else {
+            corteSales.forEach(sale => {
+                const client = sale.clientes || { nombre: 'Desconocido', telefono: '-' };
+                const productsList = sale.productos || [];
+                const prodDesc = productsList.map(p => p.descripcion).join(", ") || 'Prenda';
+                const sTotal = parseFloat(sale.monto_total_usd) || 0;
+                const sPending = parseFloat(sale.saldo_pendiente_usd) || 0;
+                const sCollected = sTotal - sPending;
+                const allDelivered = productsList.length > 0 && productsList.every(p => p.estado === 'entregado');
+
+                let badgeClass = sale.estado_pago === 'completado' 
+                    ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/50"
+                    : (sale.estado_pago === 'parcial' 
+                        ? "bg-blue-950/60 text-blue-400 border border-blue-800/50" 
+                        : "bg-rose-950/60 text-rose-400 border border-rose-800/50");
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-900/30 border-b border-slate-900/60";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-semibold text-white">${client.nombre}</td>
+                    <td class="py-3 px-4 text-slate-300 max-w-xs truncate">${prodDesc}</td>
+                    <td class="py-3 px-4 text-right font-medium text-slate-200">${fmt.usd(sTotal)}</td>
+                    <td class="py-3 px-4 text-right font-medium text-emerald-400">${fmt.usd(sCollected)}</td>
+                    <td class="py-3 px-4 text-right font-bold text-rose-400">${fmt.usd(sPending)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${badgeClass}">
+                            ${sale.estado_pago}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${allDelivered ? 'bg-slate-900 text-slate-400 border border-slate-800' : 'bg-brand-950 text-brand-400 border border-brand-800/40'}">
+                            ${allDelivered ? 'Entregado' : 'Pendiente'}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        if (corte.estado === 'cerrado' && el.btnReopenCorteFromModal) {
+            el.btnReopenCorteFromModal.classList.remove('hidden');
+        } else if (el.btnReopenCorteFromModal) {
+            el.btnReopenCorteFromModal.classList.add('hidden');
+        }
+
+        el.corteDetailModal.classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    async function handleReopenCorte(corteId) {
+        const corte = state.cortes.find(c => c.id === corteId);
+        if (!corte) return;
+
+        if (!confirm(`¿Estás seguro de que deseas REABRIR el "${corte.nombre}"?\n\nAl reabrirlo, volverá a mostrarse como el corte activo en la vista principal.`)) {
+            return;
+        }
+
+        setLoader(true);
+        const supabase = window.supabaseClient.supabase;
+
+        try {
+            // Cerrar el que estuviese activo
+            if (state.activeCorte && state.activeCorte.id !== corteId) {
+                if (window.supabaseClient.isConfigured) {
+                    await supabase.from('cortes').update({ estado: 'cerrado' }).eq('id', state.activeCorte.id);
+                }
+                state.activeCorte.estado = 'cerrado';
+            }
+
+            // Activar este corte
+            if (window.supabaseClient.isConfigured) {
+                await supabase.from('cortes').update({ estado: 'activo', fecha_cierre: null }).eq('id', corteId);
+            }
+
+            corte.estado = 'activo';
+            corte.fecha_cierre = null;
+            state.activeCorte = corte;
+            state.corteScope = 'active';
+
+            localStorage.setItem('cortes_data', JSON.stringify(state.cortes));
+
+            if (el.corteDetailModal) el.corteDetailModal.classList.add('hidden');
+            showToast("Corte Reabierto", `"${corte.nombre}" está nuevamente activo.`, "success");
+
+            await loadData();
+            switchTab('dashboard');
+
+        } catch (err) {
+            console.error("Error al reabrir corte:", err);
+            showToast("Error", "No se pudo reabrir el corte: " + err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
+    function toggleUnassignedSalesSection() {
+        if (!el.unassignedSalesSection) return;
+        const isHidden = el.unassignedSalesSection.classList.contains('hidden');
+        if (isHidden) {
+            renderUnassignedSalesTable();
+            el.unassignedSalesSection.classList.remove('hidden');
+            el.unassignedSalesSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            el.unassignedSalesSection.classList.add('hidden');
+        }
+    }
+
+    function renderUnassignedSalesTable() {
+        const tbody = el.unassignedSalesTableBody;
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        const unassigned = state.sales.filter(s => !s.corte_id);
+        if (unassigned.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">No hay ventas registradas sin corte asignado.</td></tr>`;
+            return;
+        }
+
+        unassigned.forEach(sale => {
+            const client = sale.clientes || { nombre: 'Desconocido', telefono: '-' };
+            const productsList = sale.productos || [];
+            const prodDesc = productsList.map(p => p.descripcion).join(", ") || 'Prenda';
+            const sTotal = parseFloat(sale.monto_total_usd) || 0;
+            const sPending = parseFloat(sale.saldo_pendiente_usd) || 0;
+            const sCollected = sTotal - sPending;
+
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-900/30 border-b border-slate-900/60";
+            tr.innerHTML = `
+                <td class="py-2.5 px-4 font-semibold text-white">${client.nombre}</td>
+                <td class="py-2.5 px-4 text-slate-300 max-w-xs truncate">${prodDesc}</td>
+                <td class="py-2.5 px-4 text-right font-medium text-slate-200">${fmt.usd(sTotal)}</td>
+                <td class="py-2.5 px-4 text-right font-medium text-emerald-400">${fmt.usd(sCollected)}</td>
+                <td class="py-2.5 px-4 text-right font-bold text-rose-400">${fmt.usd(sPending)}</td>
+                <td class="py-2.5 px-4 text-center"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-900 text-slate-400 border border-slate-800">${sale.estado_pago}</span></td>
+                <td class="py-2.5 px-4 text-center">
+                    <button class="btn-assign-sale-to-active px-2.5 py-1 bg-brand-950 text-brand-300 hover:text-white rounded-lg border border-brand-900 text-[10px] font-medium transition-all"
+                        data-sale-id="${sale.id}">
+                        + Asignar a Corte Activo
+                    </button>
+                </td>
+            `;
+
+            const btnAssign = tr.querySelector('.btn-assign-sale-to-active');
+            if (btnAssign) {
+                btnAssign.addEventListener('click', async () => {
+                    if (!state.activeCorte) {
+                        showToast("Aviso", "No hay un corte activo abierto. Inicia un nuevo corte primero.", "warning");
+                        return;
+                    }
+                    await assignSaleToCorte(sale.id, state.activeCorte.id);
+                });
+            }
+
+            tbody.appendChild(tr);
+        });
+
+        lucide.createIcons();
+    }
+
+    async function assignSaleToCorte(saleId, corteId) {
+        setLoader(true);
+        try {
+            if (window.supabaseClient.isConfigured) {
+                await window.supabaseClient.supabase
+                    .from('ventas')
+                    .update({ corte_id: corteId })
+                    .eq('id', saleId);
+            }
+            const localMap = JSON.parse(localStorage.getItem('ventas_corte_map') || '{}');
+            localMap[saleId] = corteId;
+            localStorage.setItem('ventas_corte_map', JSON.stringify(localMap));
+
+            showToast("Venta Asignada", `La venta se vinculó al corte activo.`, "success");
+            await loadData();
+            renderUnassignedSalesTable();
+        } catch (err) {
+            console.error("Error al asignar venta:", err);
+            showToast("Error", err.message, "error");
+        } finally {
+            setLoader(false);
+        }
+    }
+
     // --- CAMBIAR PESTAÑA ---
     function switchTab(tabId) {
         state.currentTab = tabId;
@@ -912,23 +1940,31 @@ document.addEventListener('DOMContentLoaded', () => {
             { btn: el.tabDashboard, content: el.contentDashboard },
             { btn: el.tabEncargo, content: el.contentEncargo },
             { btn: el.tabAbonos, content: el.contentAbonos },
+            { btn: el.tabCortes, content: el.contentCortes },
             { btn: el.tabReportes, content: el.contentReportes }
         ];
 
         tabs.forEach(t => {
+            if (!t.btn || !t.content) return;
             if (t.btn.id === `tab-${tabId}`) {
-                t.btn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-400 flex items-center gap-2 hover:bg-slate-900/30 transition-all";
+                t.btn.className = "px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-brand-500 text-brand-400 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0";
                 t.content.classList.remove('hidden');
             } else {
-                t.btn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all";
+                t.btn.className = "px-4 sm:px-6 py-3 font-semibold text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 hover:bg-slate-900/30 transition-all shrink-0";
                 t.content.classList.add('hidden');
             }
         });
 
         // Acciones específicas por pestaña
-        if (tabId === 'abonos') {
+        if (tabId === 'dashboard') {
+            renderActiveCorteBanner();
+            renderMetrics();
+            renderTable();
+        } else if (tabId === 'abonos') {
             el.abonoTasaBcv.value = state.bcvRate.toFixed(2);
             calculateAbonoConversion();
+        } else if (tabId === 'cortes') {
+            renderCortesHistory();
         } else if (tabId === 'reportes') {
             renderCharts();
         }
@@ -944,30 +1980,64 @@ document.addEventListener('DOMContentLoaded', () => {
         const supabase = window.supabaseClient.supabase;
 
         try {
-            // Hacemos un join de ventas, clientes y productos (con la nueva columna imagen_url)
-            const { data, error } = await supabase
-                .from('ventas')
-                .select(`
-                    id,
-                    monto_total_usd,
-                    saldo_pendiente_usd,
-                    estado_pago,
-                    creado_en,
-                    clientes (id, nombre, telefono),
-                    productos (id, descripcion, precio_costo_usd, precio_venta_usd, estado, imagen_url)
-                `)
-                .order('creado_en', { ascending: false });
+            // 1. Cargar Cortes
+            await fetchCortes();
 
-            if (error) throw error;
+            // 2. Cargar Ventas (con corte_id si está disponible)
+            let salesData = null;
+            try {
+                const { data, error } = await supabase
+                    .from('ventas')
+                    .select(`
+                        id,
+                        corte_id,
+                        monto_total_usd,
+                        saldo_pendiente_usd,
+                        estado_pago,
+                        creado_en,
+                        clientes (id, nombre, telefono),
+                        productos (id, descripcion, precio_costo_usd, precio_venta_usd, estado, imagen_url)
+                    `)
+                    .order('creado_en', { ascending: false });
 
-            state.sales = data || [];
+                if (error) throw error;
+                salesData = data;
+            } catch (errWithCorte) {
+                console.warn("Consulta con corte_id falló, reintentando consulta estándar:", errWithCorte.message);
+                const { data: stdData, error: stdError } = await supabase
+                    .from('ventas')
+                    .select(`
+                        id,
+                        monto_total_usd,
+                        saldo_pendiente_usd,
+                        estado_pago,
+                        creado_en,
+                        clientes (id, nombre, telefono),
+                        productos (id, descripcion, precio_costo_usd, precio_venta_usd, estado, imagen_url)
+                    `)
+                    .order('creado_en', { ascending: false });
+
+                if (stdError) throw stdError;
+
+                // Mapear con corte_id local si existe
+                const localMap = JSON.parse(localStorage.getItem('ventas_corte_map') || '{}');
+                salesData = (stdData || []).map(s => ({
+                    ...s,
+                    corte_id: localMap[s.id] || null
+                }));
+            }
+
+            state.sales = salesData || [];
             
             // Renderizar la pantalla
+            renderActiveCorteBanner();
             renderMetrics();
             renderTable();
             populateAbonoSelect();
             
-            if (state.currentTab === 'reportes') {
+            if (state.currentTab === 'cortes') {
+                renderCortesHistory();
+            } else if (state.currentTab === 'reportes') {
                 renderCharts();
             }
             
@@ -981,11 +2051,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CALCULAR Y RENDERIZAR MÉTRICAS ---
     function renderMetrics() {
+        let salesToCalculate = [];
+
+        if (state.corteScope === 'active') {
+            if (state.activeCorte) {
+                salesToCalculate = state.sales.filter(s => s.corte_id === state.activeCorte.id);
+            } else {
+                salesToCalculate = [];
+            }
+        } else if (state.corteScope === 'archived') {
+            salesToCalculate = state.sales.filter(s => !s.corte_id);
+        } else {
+            salesToCalculate = state.sales;
+        }
+
         let totalSales = 0;
         let totalPending = 0;
         let totalCollected = 0;
 
-        state.sales.forEach(sale => {
+        salesToCalculate.forEach(sale => {
             const saleTotal = parseFloat(sale.monto_total_usd) || 0;
             const salePending = parseFloat(sale.saldo_pendiente_usd) || 0;
             const saleCollected = saleTotal - salePending;
@@ -1014,8 +2098,20 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = "";
         if (mobileContainer) mobileContainer.innerHTML = "";
 
-        // Filtrar datos
-        const filtered = state.sales.filter(sale => {
+        // 1. Filtrar por ámbito de Corte
+        let salesPool = state.sales;
+        if (state.corteScope === 'active') {
+            if (state.activeCorte) {
+                salesPool = state.sales.filter(s => s.corte_id === state.activeCorte.id);
+            } else {
+                salesPool = [];
+            }
+        } else if (state.corteScope === 'archived') {
+            salesPool = state.sales.filter(s => !s.corte_id);
+        }
+
+        // 2. Filtrar por búsqueda y estado de pago
+        const filtered = salesPool.filter(sale => {
             const clientName = sale.clientes?.nombre?.toLowerCase() || "";
             const clientTel = sale.clientes?.telefono?.toLowerCase() || "";
             const productsList = sale.productos || [];
@@ -1028,7 +2124,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (filtered.length === 0) {
-            const emptyText = "No se encontraron registros que coincidan con la búsqueda.";
+            let emptyText = "No se encontraron registros que coincidan con la búsqueda.";
+            if (state.corteScope === 'active' && !state.activeCorte) {
+                emptyText = "No hay un corte activo en este momento. Inicia un nuevo corte para comenzar este ciclo o selecciona 'Todos los Pedidos' en el filtro superior.";
+            } else if (state.corteScope === 'active' && salesPool.length === 0) {
+                emptyText = `El "${state.activeCorte.nombre}" no tiene pedidos registrados todavía. Ve a la pestaña 'Nuevo Encargo' para agregar el primer pedido a este corte.`;
+            } else if (state.corteScope === 'archived' && salesPool.length === 0) {
+                emptyText = "No tienes ventas archivadas previas sin corte asignado.";
+            }
+
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="py-12 text-center text-slate-500">
@@ -1739,20 +2843,50 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalPrice = state.tempOrderItems.reduce((acc, item) => acc + item.precio_venta_usd, 0);
 
             // 2. Registrar la Venta (monto acumulativo de todo el lote)
-            const { data: newSale, error: insertSaleError } = await supabase
-                .from('ventas')
-                .insert([{
-                    cliente_id: clientId,
-                    monto_total_usd: totalPrice,
-                    saldo_pendiente_usd: totalPrice,
-                    estado_pago: 'pendiente',
-                    creado_en: orderDate
-                }])
-                .select('id')
-                .single();
+            const activeCorteId = state.activeCorte ? state.activeCorte.id : null;
+            let newSale = null;
+            let insertSaleError = null;
+
+            try {
+                const res = await supabase
+                    .from('ventas')
+                    .insert([{
+                        cliente_id: clientId,
+                        corte_id: activeCorteId,
+                        monto_total_usd: totalPrice,
+                        saldo_pendiente_usd: totalPrice,
+                        estado_pago: 'pendiente',
+                        creado_en: orderDate
+                    }])
+                    .select('id')
+                    .single();
+                newSale = res.data;
+                insertSaleError = res.error;
+            } catch (errCol) {
+                const res2 = await supabase
+                    .from('ventas')
+                    .insert([{
+                        cliente_id: clientId,
+                        monto_total_usd: totalPrice,
+                        saldo_pendiente_usd: totalPrice,
+                        estado_pago: 'pendiente',
+                        creado_en: orderDate
+                    }])
+                    .select('id')
+                    .single();
+                newSale = res2.data;
+                insertSaleError = res2.error;
+            }
 
             if (insertSaleError) throw insertSaleError;
             const saleId = newSale.id;
+
+            // Guardar local mapping si hay corte activo
+            if (activeCorteId) {
+                const localMap = JSON.parse(localStorage.getItem('ventas_corte_map') || '{}');
+                localMap[saleId] = activeCorteId;
+                localStorage.setItem('ventas_corte_map', JSON.stringify(localMap));
+            }
 
             // 3. Registrar todos los Productos del lote asociados a la venta
             const { error: insertProductsError } = await supabase
@@ -1768,7 +2902,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (insertProductsError) throw insertProductsError;
 
-            showToast("Encargo Guardado", `Se ha registrado el pedido con ${state.tempOrderItems.length} prendas para ${clientName}.`, "success");
+            const corteNotice = state.activeCorte ? ` (Asignado al ${state.activeCorte.nombre})` : ' (Sin corte activo)';
+            showToast("Encargo Guardado", `Se ha registrado el pedido con ${state.tempOrderItems.length} prendas para ${clientName}${corteNotice}.`, "success");
             
             // Reiniciar variables de estado y UI
             state.tempOrderItems = [];

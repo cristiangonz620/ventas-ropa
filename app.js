@@ -24,6 +24,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Imagen por defecto para prendas que no posean URL propia
     const DEFAULT_CLOTHING_IMAGE = "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=150&q=80";
 
+    // --- FUNCIONES DE SANITIZACIÓN Y SEGURIDAD (XSS PREVENTION) ---
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function sanitizeUrl(url) {
+        if (!url || typeof url !== 'string') return DEFAULT_CLOTHING_IMAGE;
+        const trimmed = url.trim();
+        if (trimmed.startsWith('https://') || trimmed.startsWith('http://') || trimmed.startsWith('data:image/')) {
+            return escapeHtml(trimmed);
+        }
+        return DEFAULT_CLOTHING_IMAGE;
+    }
+
+    function getSafeErrorMessage(err, fallback = "Ocurrió un error al procesar la solicitud.") {
+        if (!err) return fallback;
+        const msg = typeof err === 'string' ? err : (err.message || '');
+        if (msg.includes('Invalid login credentials')) return 'Correo electrónico o contraseña incorrectos.';
+        if (msg.includes('Email not confirmed')) return 'El correo electrónico no ha sido verificado aún.';
+        if (msg.includes('Rate limit exceeded')) return 'Demasiados intentos. Espera unos momentos antes de reintentar.';
+        if (msg.includes('violates foreign key')) return 'Operación no permitida: referencia no válida.';
+        if (msg.includes('violates check constraint') || msg.includes('chk_')) return 'Los valores numéricos o estados no cumplen las reglas de validación financiera.';
+        if (msg.includes('violates unique constraint')) return 'Ya existe un registro con estos datos.';
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Error de red o conexión al servidor.';
+        return escapeHtml(msg) || fallback;
+    }
+
     // --- ELEMENTOS DEL DOM ---
     const el = {
         // Navegación
@@ -109,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Configuración y Avisos
         setupWarning: document.getElementById('setup-warning'),
+        btnSetupWarningConfig: document.getElementById('btn-setup-warning-config'),
         globalLoader: document.getElementById('global-loader'),
         toastContainer: document.getElementById('toast-container'),
         globalBcvRate: document.getElementById('global-bcv-rate'),
@@ -682,8 +716,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toast.innerHTML = `
             <i data-lucide="${iconMap[type]}" class="w-5 h-5 shrink-0 mt-0.5 ${iconColor[type]}"></i>
             <div class="flex-1 min-w-0 pr-1">
-                <h4 class="text-xs font-bold font-outfit uppercase tracking-wider">${title}</h4>
-                <p class="text-xs mt-1 text-slate-300 font-medium leading-relaxed">${displayMessage}</p>
+                <h4 class="text-xs font-bold font-outfit uppercase tracking-wider">${escapeHtml(title)}</h4>
+                <p class="text-xs mt-1 text-slate-300 font-medium leading-relaxed">${escapeHtml(displayMessage)}</p>
             </div>
             <button type="button" class="btn-close-toast text-slate-400 hover:text-white transition-colors shrink-0 p-1 -mr-1 -mt-1 rounded-lg hover:bg-white/10">
                 <i data-lucide="x" class="w-4 h-4"></i>
@@ -846,6 +880,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Modales
+        if (el.btnSetupWarningConfig) {
+            el.btnSetupWarningConfig.addEventListener('click', () => {
+                el.btnOpenSettings.click();
+            });
+        }
         el.btnOpenSettings.addEventListener('click', () => {
             const config = window.supabaseClient.getConfig();
             el.settingsUrl.value = config.url || '';
@@ -1375,11 +1414,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-900 hover:border-slate-800 cursor-pointer text-xs";
                 item.innerHTML = `
                     <div class="flex items-center gap-2.5 min-w-0 pr-2">
-                        <input type="checkbox" name="transfer_sale" value="${sale.id}" checked 
+                        <input type="checkbox" name="transfer_sale" value="${escapeHtml(sale.id)}" checked 
                             class="rounded border-slate-700 text-brand-600 focus:ring-0 shrink-0">
                         <div class="truncate">
-                            <span class="font-semibold text-white block truncate">${clientName}</span>
-                            <span class="text-[11px] text-slate-400 block truncate">${prodDesc}</span>
+                            <span class="font-semibold text-white block truncate">${escapeHtml(clientName)}</span>
+                            <span class="text-[11px] text-slate-400 block truncate">${escapeHtml(prodDesc)}</span>
                         </div>
                     </div>
                     <div class="text-right shrink-0">
@@ -1549,8 +1588,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 border border-slate-900 text-xs";
                 item.innerHTML = `
                     <div class="truncate pr-2">
-                        <span class="font-semibold text-white block truncate">${clientName}</span>
-                        <span class="text-[11px] text-slate-400 block truncate">${prodDesc}</span>
+                        <span class="font-semibold text-white block truncate">${escapeHtml(clientName)}</span>
+                        <span class="text-[11px] text-slate-400 block truncate">${escapeHtml(prodDesc)}</span>
                     </div>
                     <div class="text-right shrink-0">
                         <span class="font-bold text-rose-400 block">${fmt.usd(pendingUsd)}</span>
@@ -1748,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-800 mb-1">
                                 Corte Archivado
                             </span>
-                            <h3 class="text-base font-bold font-outfit text-white group-hover:text-brand-300 transition-colors">${corte.nombre}</h3>
+                            <h3 class="text-base font-bold font-outfit text-white group-hover:text-brand-300 transition-colors">${escapeHtml(corte.nombre)}</h3>
                             <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
                                 <i data-lucide="calendar" class="w-3 h-3"></i>
                                 <span>${startText} - ${closeText}</span>
@@ -1759,7 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
-                    ${corte.descripcion ? `<p class="text-xs text-slate-400 mt-2 line-clamp-2">${corte.descripcion}</p>` : ''}
+                    ${corte.descripcion ? `<p class="text-xs text-slate-400 mt-2 line-clamp-2">${escapeHtml(corte.descripcion)}</p>` : ''}
 
                     <!-- Grid de Métricas del Corte -->
                     <div class="grid grid-cols-2 gap-2 mt-3.5 bg-slate-950/70 p-3 rounded-xl border border-slate-900 text-xs">
@@ -1873,14 +1912,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-900/30 border-b border-slate-900/60";
                 tr.innerHTML = `
-                    <td class="py-3 px-4 font-semibold text-white">${client.nombre}</td>
-                    <td class="py-3 px-4 text-slate-300 max-w-xs truncate">${prodDesc}</td>
+                    <td class="py-3 px-4 font-semibold text-white">${escapeHtml(client.nombre)}</td>
+                    <td class="py-3 px-4 text-slate-300 max-w-xs truncate" title="${escapeHtml(prodDesc)}">${escapeHtml(prodDesc)}</td>
                     <td class="py-3 px-4 text-right font-medium text-slate-200">${fmt.usd(sTotal)}</td>
                     <td class="py-3 px-4 text-right font-medium text-emerald-400">${fmt.usd(sCollected)}</td>
                     <td class="py-3 px-4 text-right font-bold text-rose-400">${fmt.usd(sPending)}</td>
                     <td class="py-3 px-4 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${badgeClass}">
-                            ${sale.estado_pago}
+                            ${escapeHtml(sale.estado_pago)}
                         </span>
                     </td>
                     <td class="py-3 px-4 text-center">
@@ -1990,15 +2029,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-900/30 border-b border-slate-900/60";
             tr.innerHTML = `
-                <td class="py-2.5 px-4 font-semibold text-white">${client.nombre}</td>
-                <td class="py-2.5 px-4 text-slate-300 max-w-xs truncate">${prodDesc}</td>
+                <td class="py-2.5 px-4 font-semibold text-white">${escapeHtml(client.nombre)}</td>
+                <td class="py-2.5 px-4 text-slate-300 max-w-xs truncate" title="${escapeHtml(prodDesc)}">${escapeHtml(prodDesc)}</td>
                 <td class="py-2.5 px-4 text-right font-medium text-slate-200">${fmt.usd(sTotal)}</td>
                 <td class="py-2.5 px-4 text-right font-medium text-emerald-400">${fmt.usd(sCollected)}</td>
                 <td class="py-2.5 px-4 text-right font-bold text-rose-400">${fmt.usd(sPending)}</td>
-                <td class="py-2.5 px-4 text-center"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-900 text-slate-400 border border-slate-800">${sale.estado_pago}</span></td>
+                <td class="py-2.5 px-4 text-center"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-900 text-slate-400 border border-slate-800">${escapeHtml(sale.estado_pago)}</span></td>
                 <td class="py-2.5 px-4 text-center">
                     <button class="btn-assign-sale-to-active px-2.5 py-1 bg-brand-950 text-brand-300 hover:text-white rounded-lg border border-brand-900 text-[10px] font-medium transition-all"
-                        data-sale-id="${sale.id}">
+                        data-sale-id="${escapeHtml(sale.id)}">
                         + Asignar a Corte Activo
                     </button>
                 </td>
@@ -2311,10 +2350,10 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.className = "hover:bg-slate-900/35 transition-colors border-b border-slate-900";
             tr.innerHTML = `
                 <td class="py-4 px-6">
-                    <div class="font-bold text-slate-100 font-outfit text-sm">${client.nombre}</div>
+                    <div class="font-bold text-slate-100 font-outfit text-sm">${escapeHtml(client.nombre)}</div>
                     ${client.telefono ? `
                         <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                            <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${client.telefono}
+                            <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${escapeHtml(client.telefono)}
                         </div>
                     ` : ''}
                     <div class="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
@@ -2325,11 +2364,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="py-4 px-6 max-w-xs">
                     <div class="flex items-center gap-3">
                         <img class="w-10 h-10 rounded-lg object-cover bg-slate-900 border border-slate-800 shrink-0" 
-                            src="${imgUrl}" 
+                            src="${sanitizeUrl(imgUrl)}" 
                             onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
                             alt="Prenda">
                         <div class="truncate">
-                            <div class="text-slate-200 font-medium">${combinedDescription}</div>
+                            <div class="text-slate-200 font-medium">${escapeHtml(combinedDescription)}</div>
                             <div class="mt-1 flex items-center gap-1.5">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${deliverBadgeClass}">
                                     ${deliverText}
@@ -2359,9 +2398,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="flex items-center justify-center gap-2">
                         <!-- Botón Ver Detalles del Pedido -->
                         <button class="btn-view-details p-1.5 bg-slate-900 border border-slate-800 hover:border-violet-500/50 hover:bg-slate-800/80 rounded-lg text-slate-400 hover:text-violet-400 transition-all" 
-                            data-sale-id="${sale.id}" 
-                            data-client-name="${client.nombre}" 
-                            data-client-phone="${client.telefono || 'Sin teléfono'}"
+                            data-sale-id="${escapeHtml(sale.id)}" 
+                            data-client-name="${escapeHtml(client.nombre)}" 
+                            data-client-phone="${escapeHtml(client.telefono || 'Sin teléfono')}"
                             data-total-usd="${fmt.usd(ventaTotal)}"
                             data-pending-usd="${fmt.usd(saldoPendiente)}"
                             title="Ver detalle del pedido / prendas">
@@ -2369,9 +2408,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
 
                         <button class="btn-view-history p-1.5 bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-800/80 rounded-lg text-slate-400 hover:text-brand-400 transition-all" 
-                            data-sale-id="${sale.id}" 
-                            data-client-name="${client.nombre}" 
-                            data-product-desc="${combinedDescription}" 
+                            data-sale-id="${escapeHtml(sale.id)}" 
+                            data-client-name="${escapeHtml(client.nombre)}" 
+                            data-product-desc="${escapeHtml(combinedDescription)}" 
                             data-total-usd="${fmt.usd(abonado)}"
                             title="Ver Historial de Abonos">
                             <i data-lucide="scroll" class="w-4 h-4"></i>
@@ -2379,8 +2418,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         <!-- Botón Agregar Prenda -->
                         <button class="btn-add-item-direct p-1.5 bg-brand-950 border border-brand-900 hover:border-brand-500 hover:bg-brand-900/50 rounded-lg text-brand-400 hover:text-white transition-all" 
-                            data-sale-id="${sale.id}" 
-                            data-client-name="${client.nombre}"
+                            data-sale-id="${escapeHtml(sale.id)}" 
+                            data-client-name="${escapeHtml(client.nombre)}" 
                             title="Agregar prenda a este pedido">
                             <i data-lucide="plus" class="w-4 h-4"></i>
                         </button>
@@ -2482,9 +2521,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Encabezado Cliente y Estado -->
                     <div class="flex items-start justify-between gap-2 border-b border-slate-800/60 pb-3">
                         <div>
-                            <div class="font-bold text-slate-100 font-outfit text-base">${client.nombre}</div>
+                            <div class="font-bold text-slate-100 font-outfit text-base">${escapeHtml(client.nombre)}</div>
                             <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-1">
-                                ${client.telefono ? `<span class="flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${client.telefono}</span>` : ''}
+                                ${client.telefono ? `<span class="flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3 text-slate-500"></i> ${escapeHtml(client.telefono)}</span>` : ''}
                                 <span class="flex items-center gap-1 text-[11px] text-slate-500"><i data-lucide="calendar" class="w-3 h-3"></i> ${fmt.dateOnly(sale.creado_en)}</span>
                             </div>
                         </div>
@@ -2496,11 +2535,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- Detalles del Producto -->
                     <div class="flex items-center gap-3">
                         <img class="w-12 h-12 rounded-xl object-cover bg-slate-900 border border-slate-800 shrink-0" 
-                            src="${imgUrl}" 
+                            src="${sanitizeUrl(imgUrl)}" 
                             onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
                             alt="Prenda">
                         <div class="flex-1 min-w-0">
-                            <div class="text-slate-200 font-medium text-xs leading-snug line-clamp-2">${combinedDescription}</div>
+                            <div class="text-slate-200 font-medium text-xs leading-snug line-clamp-2">${escapeHtml(combinedDescription)}</div>
                             <div class="mt-1">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${deliverBadgeClass}">
                                     ${deliverText}
@@ -2749,8 +2788,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CALCULO DE CONVERSIÓN EN TIEMPO REAL ---
     function calculateAbonoConversion() {
-        const montoInput = parseFloat(el.abonoMontoInput.value) || 0;
-        const tasaBcv = parseFloat(el.abonoTasaBcv.value) || 1;
+        const montoInput = Math.max(0, parseFloat(el.abonoMontoInput.value) || 0);
+        const rawTasa = parseFloat(el.abonoTasaBcv.value);
+        // Protección estricta contra división por cero o tasa negativa
+        const tasaBcv = (rawTasa > 0 && !isNaN(rawTasa)) ? rawTasa : (state.bcvRate > 0 ? state.bcvRate : 1);
         
         let calculatedUsd = 0;
         let calculatedBs = 0;
@@ -2861,7 +2902,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.className = "border-b border-slate-900/40 text-xs";
             tr.innerHTML = `
-                <td class="py-2 px-4 text-slate-200 font-medium truncate max-w-[200px]">${item.descripcion}</td>
+                <td class="py-2 px-4 text-slate-200 font-medium truncate max-w-[200px]">${escapeHtml(item.descripcion)}</td>
                 <td class="py-2 px-4 text-right text-slate-400">${fmt.usd(item.precio_costo_usd)}</td>
                 <td class="py-2 px-4 text-right text-emerald-400 font-semibold">${fmt.usd(item.precio_venta_usd)}</td>
                 <td class="py-2 px-4 text-center">
@@ -3077,8 +3118,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const metodoPago = el.abonoMetodo.value;
         const fechaPago = el.abonoFecha.value;
 
-        if (!ventaId || montoInput <= 0 || tasaBcv <= 0 || !metodoPago) {
-            showToast("Validación", "Por favor completa todos los campos del abono correctamente.", "warning");
+        // Validación financiera estricta: montos y tasa mayores a cero
+        if (!ventaId || montoInput <= 0 || tasaBcv <= 0 || isNaN(montoInput) || isNaN(tasaBcv) || !metodoPago) {
+            showToast("Validación Financiera", "El monto del abono y la tasa BCV deben ser mayores a cero.", "warning");
             return;
         }
 
@@ -3090,16 +3132,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saldoPendienteUsd = parseFloat(sale.saldo_pendiente_usd) || 0;
         
-        // Calcular montos finales en ambas monedas
+        // Calcular montos finales redondeados a 2 decimales para evitar desbordes de punto flotante
         let montoAbonoUsd = 0;
         let montoAbonoBs = 0;
 
         if (state.abonoCurrency === 'Bs') {
-            montoAbonoBs = montoInput;
-            montoAbonoUsd = montoInput / tasaBcv;
+            montoAbonoBs = Math.round(montoInput * 100) / 100;
+            montoAbonoUsd = Math.round((montoInput / tasaBcv) * 100) / 100;
         } else {
-            montoAbonoUsd = montoInput;
-            montoAbonoBs = montoInput * tasaBcv;
+            montoAbonoUsd = Math.round(montoInput * 100) / 100;
+            montoAbonoBs = Math.round((montoInput * tasaBcv) * 100) / 100;
+        }
+
+        if (montoAbonoUsd <= 0 || montoAbonoBs <= 0) {
+            showToast("Validación Financiera", "El monto calculado del abono debe ser mayor a $0.00.", "warning");
+            return;
         }
 
         // Validar límite con margen de tolerancia de centavos por redondeos
@@ -3113,7 +3160,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Asegurar que el monto en USD no sea mayor que el pendiente para evitar saldos negativos
-            const montoAbonoUsdFinal = Math.min(saldoPendienteUsd, montoAbonoUsd);
+            const montoAbonoUsdFinal = Math.round(Math.min(saldoPendienteUsd, montoAbonoUsd) * 100) / 100;
+            if (montoAbonoUsdFinal <= 0) {
+                showToast("Validación Financiera", "El monto del abono a registrar debe ser positivo.", "warning");
+                return;
+            }
 
             // 1. Insertar abono
             const { error: insertAbonoError } = await supabase
@@ -3218,11 +3269,11 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="flex items-center gap-3.5 min-w-0">
                     <img class="w-12 h-12 rounded-xl object-cover bg-slate-950 border border-slate-800 shrink-0" 
-                        src="${itemImg}" 
+                        src="${sanitizeUrl(itemImg)}" 
                         onerror="this.onerror=null;this.src='${DEFAULT_CLOTHING_IMAGE}'"
-                        alt="${item.descripcion}">
+                        alt="${escapeHtml(item.descripcion)}">
                     <div class="min-w-0">
-                        <h4 class="text-sm font-semibold text-slate-200 truncate pr-2" title="${item.descripcion}">${item.descripcion}</h4>
+                        <h4 class="text-sm font-semibold text-slate-200 truncate pr-2" title="${escapeHtml(item.descripcion)}">${escapeHtml(item.descripcion)}</h4>
                         <p class="text-[11px] text-slate-500 mt-1">
                             Costo: <span class="font-medium text-slate-400">${fmt.usd(item.precio_costo_usd)}</span> | 
                             Venta: <span class="font-medium text-brand-400">${fmt.usd(item.precio_venta_usd)}</span>
@@ -3232,8 +3283,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-center gap-2.5 shrink-0">
                     <!-- Botón Editar Prenda -->
                     <button class="btn-edit-single p-1.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
-                        data-product-id="${item.id}"
-                        data-sale-id="${ventaId}"
+                        data-product-id="${escapeHtml(item.id)}"
+                        data-sale-id="${escapeHtml(ventaId)}"
                         title="Editar detalles de la prenda">
                         <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                     </button>
@@ -3485,7 +3536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="py-3 px-4 text-right font-semibold text-emerald-400">${fmt.usd(rowTotalUsd)}</td>
                     <td class="py-3 px-4 text-right text-slate-400">Bs. ${parseFloat(abono.tasa_bcv_dia).toFixed(2)}</td>
                     <td class="py-3 px-4 text-right text-amber-400 font-bold">${fmt.bs(parseFloat(abono.monto_bs))}</td>
-                    <td class="py-3 px-4 text-slate-300"><span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]">${abono.metodo_pago}</span></td>
+                    <td class="py-3 px-4 text-slate-300"><span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]">${escapeHtml(abono.metodo_pago)}</span></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -3497,7 +3548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.historyTableBody.innerHTML = `
                 <tr>
                     <td colspan="5" class="py-6 text-center text-rose-400">
-                        Error al cargar los pagos: ${err.message}
+                        Error al cargar los pagos: ${escapeHtml(getSafeErrorMessage(err))}
                     </td>
                 </tr>
             `;

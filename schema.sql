@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS clientes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre TEXT NOT NULL,
     telefono TEXT,
-    creado_en TIMESTAMPTZ DEFAULT now()
+    creado_en TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT chk_clientes_nombre CHECK (length(trim(nombre)) > 0)
 );
 
 -- Indexar por nombre para búsquedas rápidas
@@ -30,11 +31,29 @@ CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
 --     fecha_cierre TIMESTAMPTZ,
 --     estado TEXT NOT NULL DEFAULT 'activo',
 --     descripcion TEXT,
---     creado_en TIMESTAMPTZ DEFAULT now()
+--     creado_en TIMESTAMPTZ DEFAULT now(),
+--     CONSTRAINT chk_estado_corte CHECK (estado IN ('activo', 'cerrado')),
+--     CONSTRAINT chk_cortes_nombre CHECK (length(trim(nombre)) > 0)
 -- );
 -- ALTER TABLE ventas ADD COLUMN IF NOT EXISTS corte_id UUID REFERENCES cortes(id) ON DELETE SET NULL;
 -- ALTER TABLE cortes ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Permitir acceso completo solo a usuarios autenticados en cortes" ON cortes FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+--
+-- Restricciones de Integridad Financiera recomendadas:
+-- DO $$ BEGIN
+--   ALTER TABLE ventas ADD CONSTRAINT chk_ventas_monto_total CHECK (monto_total_usd >= 0);
+--   ALTER TABLE ventas ADD CONSTRAINT chk_ventas_saldo_pendiente CHECK (saldo_pendiente_usd >= 0);
+--   ALTER TABLE ventas ADD CONSTRAINT chk_ventas_saldo_valido CHECK (saldo_pendiente_usd <= monto_total_usd);
+-- EXCEPTION WHEN OTHERS THEN NULL; END $$;
+-- DO $$ BEGIN
+--   ALTER TABLE abonos ADD CONSTRAINT chk_abonos_monto_usd CHECK (monto_usd > 0);
+--   ALTER TABLE abonos ADD CONSTRAINT chk_abonos_tasa_bcv CHECK (tasa_bcv_dia > 0);
+--   ALTER TABLE abonos ADD CONSTRAINT chk_abonos_monto_bs CHECK (monto_bs > 0);
+-- EXCEPTION WHEN OTHERS THEN NULL; END $$;
+-- DO $$ BEGIN
+--   ALTER TABLE productos ADD CONSTRAINT chk_productos_costo CHECK (precio_costo_usd >= 0);
+--   ALTER TABLE productos ADD CONSTRAINT chk_productos_venta CHECK (precio_venta_usd >= 0);
+-- EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ==========================================
 
 -- 2. Tabla de Ventas
@@ -45,7 +64,10 @@ CREATE TABLE IF NOT EXISTS ventas (
     saldo_pendiente_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     estado_pago TEXT NOT NULL DEFAULT 'pendiente',
     creado_en TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT chk_estado_pago CHECK (estado_pago IN ('pendiente', 'parcial', 'completado'))
+    CONSTRAINT chk_estado_pago CHECK (estado_pago IN ('pendiente', 'parcial', 'completado')),
+    CONSTRAINT chk_ventas_monto_total CHECK (monto_total_usd >= 0),
+    CONSTRAINT chk_ventas_saldo_pendiente CHECK (saldo_pendiente_usd >= 0),
+    CONSTRAINT chk_ventas_saldo_valido CHECK (saldo_pendiente_usd <= monto_total_usd)
 );
 
 -- 3. Tabla de Productos
@@ -58,7 +80,10 @@ CREATE TABLE IF NOT EXISTS productos (
     estado TEXT NOT NULL DEFAULT 'encargado',
     imagen_url TEXT, -- URL de la imagen del producto
     creado_en TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT chk_estado_producto CHECK (estado IN ('disponible', 'encargado', 'entregado'))
+    CONSTRAINT chk_estado_producto CHECK (estado IN ('disponible', 'encargado', 'entregado')),
+    CONSTRAINT chk_productos_costo CHECK (precio_costo_usd >= 0),
+    CONSTRAINT chk_productos_venta CHECK (precio_venta_usd >= 0),
+    CONSTRAINT chk_productos_desc CHECK (length(trim(descripcion)) > 0)
 );
 
 -- Indexar productos por venta_id para consultas rápidas
@@ -72,7 +97,10 @@ CREATE TABLE IF NOT EXISTS abonos (
     tasa_bcv_dia NUMERIC(10, 4) NOT NULL,
     monto_bs NUMERIC(15, 2) NOT NULL,
     metodo_pago TEXT NOT NULL,
-    fecha TIMESTAMPTZ DEFAULT now()
+    fecha TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT chk_abonos_monto_usd CHECK (monto_usd > 0),
+    CONSTRAINT chk_abonos_tasa_bcv CHECK (tasa_bcv_dia > 0),
+    CONSTRAINT chk_abonos_monto_bs CHECK (monto_bs > 0)
 );
 
 -- ==========================================
@@ -125,7 +153,8 @@ CREATE TABLE IF NOT EXISTS cortes (
     estado TEXT NOT NULL DEFAULT 'activo', -- 'activo' | 'cerrado'
     descripcion TEXT,
     creado_en TIMESTAMPTZ DEFAULT now(),
-    CONSTRAINT chk_estado_corte CHECK (estado IN ('activo', 'cerrado'))
+    CONSTRAINT chk_estado_corte CHECK (estado IN ('activo', 'cerrado')),
+    CONSTRAINT chk_cortes_nombre CHECK (length(trim(nombre)) > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cortes_estado ON cortes(estado);
